@@ -110,3 +110,63 @@ def get_tax_index(tree_file, tax_genome_file):
     print('Number of tax ids',len(tax_index),len(tax_index_)) # 
     print("Genome tax not found in kraken tree",tax_notfound)
     return tax_index
+
+
+
+def get_tax2root_all(info, parents, tax_genome):
+    tax2root_all=[]
+    tax2root_all_dic={}
+    # paths endint at all levels 
+    #tax_index_list= list(tax_index) 
+    # paths endint at leaf level (no Vague positive )
+    tax_index_list= list(tax_genome)  # tax_genome_specieslevel 
+    for tax in tax_index_list:   
+        tax2root= find_tax2root(info, parents, tax)
+        if tax2root==-1:
+            print("tax",tax)
+        else:    #elif 2 in tax2root: # selecting only bacteria
+            tax2root_all.append(tax2root) # # [655353, 655352, 655351, 356, 28211, 1224, 3379134, 2, 131567, 1]
+            tax2root_all_dic[tax]=tax2root
+    print("number of paths",len(tax2root_all))
+    return tax2root_all, tax2root_all_dic
+
+
+def get_tax2path_all(tax2root_all):
+        # the following is for all tax at all levels
+    tax2path = {} # a tax is present in which paths
+    tax2depth = {} 
+    for tax2root_path_idx, tax2root_path in enumerate(tax2root_all):
+        for tax_idx,tax in enumerate(tax2root_path[::-1]):
+            tax2depth[tax]=tax_idx
+            if tax in tax2path:
+                tax2path[tax].append(tax2root_path_idx) #tax2root_path[0]
+            else:
+                tax2path[tax]=[tax2root_path_idx]
+    print(len(tax2path),len(tax2depth))
+    return tax2path, tax2depth
+
+
+
+
+def get_read_tax_depth(merged, info, parents, cases):
+        
+    read_tax_depth={}
+    for case in cases: #'k19'
+        read_tax_depth[case]={}
+        tocheck_=""
+        for index, row in merged.iterrows():
+            taxid=row['taxon_tool_'+case]
+            tax2root_list = find_tax2root(info,parents, taxid) # [2711156, 1649486, 41297, 204457, 28211, 1224, 3379134, 2, 131567, 1]
+            if tax2root_list!=-1:
+                depth=len(tax2root_list)
+            else:
+                depth=0
+            if depth<3:
+                tocheck_=taxid
+            read_tax_depth[case][row['read_name']]=depth
+            
+    print(tocheck_)
+    print(len(read_tax_depth),len(read_tax_depth[case]))
+    #Counter(read_tax_depth[case].values())
+    return read_tax_depth
+    
