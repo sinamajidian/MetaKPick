@@ -60,7 +60,7 @@ def get_tax_info(tree_file,tax_genome_file):
     print('Number of tax ids',len(tax_index),len(tax_index_)) # 
     print("Genome tax not found in kraken tree",tax_notfound)
 
-    return info, Tree, tax_index, tax_genome, parents
+    return info, Tree, tax_index, tax_genome, parents, tree_df
 
 
 def get_tax2path(tax_genome, info, parents):
@@ -89,3 +89,19 @@ def get_tax2path(tax_genome, info, parents):
     print(len(tax2path),len(tax2depth))
 
     return tax2path, tax2depth
+
+
+
+
+def find_tax_level(info,tree_df,parents, tid, tax_level="species"):
+    if tid not in info:
+        #print(tid)
+        return -1
+    while tid != 1:    
+        tid_row = info[tid]
+        if tree_df[4][tid_row] == tax_level:
+            break
+        else:
+            tid = int(parents[info[tid]]) #find_parent_node(tid)
+            # if retrun 1, it means that the tid is more towaards root that the requested level
+    return tid
