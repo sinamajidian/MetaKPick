@@ -105,3 +105,31 @@ def find_tax_level(info,tree_df,parents, tid, tax_level="species"):
             tid = int(parents[info[tid]]) #find_parent_node(tid)
             # if retrun 1, it means that the tid is more towaards root that the requested level
     return tid
+
+
+
+def lca_finder_list(info,parents, tax_list):
+    lca=tax_list[0]
+    
+    for tax2 in tax_list[1:]:
+        lca = lca_finder(info,parents, lca,tax2)
+        
+    return lca
+
+def lca_finder(info,parents, tax1,tax2):
+    list_tax2root_1 = find_tax2root(info,parents, tax1)
+    list_tax2root_2 = find_tax2root(info,parents, tax2)
+    
+    list_tax2root1 =list_tax2root_1 [::-1] # reverse from root to leaf
+    list_tax2root2 =list_tax2root_2 [::-1]
+    
+    depth_i = 0
+    while(depth_i < len(list_tax2root1) and depth_i < len(list_tax2root2)):
+        #print(depth_i)
+        if list_tax2root1[depth_i] != list_tax2root2[depth_i]:
+            break
+        depth_i += 1
+    assert list_tax2root1[depth_i-1] == list_tax2root2[depth_i-1], "issue in LCA finding"
+    lca=list_tax2root1[depth_i-1]
+    #print(lca)
+    return lca
