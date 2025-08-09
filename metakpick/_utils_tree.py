@@ -1,4 +1,5 @@
 import pandas as pd
+import logging
 
 def parse_tree_file(tree_df,children,parents):
     # create a dictionary from taxonomic id to index of corresponding row
@@ -32,14 +33,14 @@ def find_tax2root(info,parents, tid):
 
 
 def get_tax_info(tree_file,tax_genome_file):
-    print("Tree file: ", tree_file)
+    logging.debug("Tree file: "+ tree_file)
     tree_df = pd.read_csv(tree_file, sep="\t", header=None)
 
-    print("Read the tree file") 
+    logging.debug("Read the tree file") 
     children = tree_df[0]
     parents = tree_df[2]
     info, Tree = parse_tree_file(tree_df,children,parents)
-    print("Parsed the tree file. Size of info: ", len(info),"Size of Tree: ", len(Tree))
+    logging.debug("Parsed the tree file. Size of info: "+str(   len(info))+"Size of Tree: "+str(len(Tree)))
 
 
     tax_genome_f = open(tax_genome_file,'r') # genomes in the kraken index  
