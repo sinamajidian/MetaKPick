@@ -118,7 +118,7 @@ def get_features_half_read(reported_tax, tax_kmer_dic, rlen, below_tax_all_perre
 
 
 
-def get_features_all(read_names_list, tax2path, kraken_kmers_cases, cases, read_tax_depth, tax2depth, info, parents, classification_folder):
+def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents):
         
     feature_names = ['mean_all', 'mean_nonzero', 'max', 'sum', 'mean_exc_tax', 'mean_all/rlen', 'mean_nonzero/rlen', 'max/rlen', 'sum/rlen', 'mean_exc_tax/rlen', 
                 'depth_reported_tax', 'Avg_kmer_consecutive', 'WAvg_kmer_consecutive', 'kmer_reported_tax', 'kmer_tax_above', 'kmer_tax_below', 
@@ -127,21 +127,23 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, cases, read_
 
     
     num_nodes_tree = len(tax2path)  # 52229
-    
+    cases=list(kraken_kmers_cases.keys())
     features_cases={}
-    for case in cases[::-1]: 
+    for case in cases: 
         logging.debug("working on case: "+case)
         kmer_size= int(case[1:])
         X3=[]
         for read_idx,read_name in enumerate(read_names_list):
             if read_idx%10000==0:
                 logging.debug("Working on read idx: "+str(read_idx)+"  out of "+str(len(read_names_list)))
-            if read_name not in kraken_kmers_cases[case]:
+
+            reported_tax, rlen, tax_kmer_dic, tax_kmer_num_dic = kraken_kmers_cases[case][read_name]  # read length
+            #if read_name not in kraken_kmers_cases[case]:
+            if reported_tax==0:
                 features=np.zeros(len(feature_names))
                 X3.append(features)
                 continue 
-
-            reported_tax, rlen, tax_kmer_dic, tax_kmer_num_dic = kraken_kmers_cases[case][read_name]  # read length
+            
             kmer_reported_tax = tax_kmer_num_dic.get(reported_tax, 0)    # kraken tax may be LCA of others
 
             features_read = get_features_read(tax_kmer_num_dic, num_nodes_tree, kmer_reported_tax, rlen)
@@ -172,14 +174,12 @@ def train_RF_model(X_input,Y_input, n_estimators=1000, max_features=float(0.8), 
 
 
 
-def train_RF_model_all(cases, features_cases, tp_binary_reads_cases,read_names_list,n_estimators, max_features, max_leaf_nodes, random_state, n_jobs=1):
-
+def train_RF_model_all(features_cases, tp_binary_reads_cases,read_names_list,n_estimators, max_features, max_leaf_nodes, random_state, n_jobs=1):
+    
     num_reads=len(read_names_list)
-    read_k_prob={}
-    for read_name in read_names_list:
-        read_k_prob[read_name]=np.zeros(len(cases))    
     regr_dic = {}
-    for case_idx, case in enumerate(cases):
+    for case, features_case in features_cases.items():
+   
         X_input = features_cases[case]
         Y_input = tp_binary_reads_cases[case]
 
@@ -187,57 +187,19 @@ def train_RF_model_all(cases, features_cases, tp_binary_reads_cases,read_names_l
 
         logging.debug("X_input.shape "+str(X_input.shape)+" len(Y_input) "+str(len(Y_input)))
 
-        y_pred = regr_dic[case].predict(X_input)
-        y_pred_binary = np.round(y_pred)  # round(0.55)=1
-        logging.debug("regr_dic[case]"+str(regr_dic[case]))
-        accuracy=sum([1 for i in range(len(y_pred)) if y_pred_binary[i] == Y_input[i]]) / len(Y_input)
-        logging.debug(" Accuracy of regression model for case "+case+" is "+str(accuracy))
-        # sklearn.metrics.confusion_matrix(y_train, y_traing_pred)
-        #logging.debug("Confusion matrix for case "+case+" is "+str(confusion_matrix(Y_input, y_pred_binary)))
 
-    for read_name_idx,read_name in enumerate(read_names_list):        
-        read_k_prob[read_name][case_idx]= y_pred_binary[read_name_idx]
-
-
-    return regr_dic,read_k_prob
+    return regr_dic
 
 
 
-def get_best_tax(read_k_prob,cases,read_names_list,merged,thr_minprob=0.5):
-    best_k_dic={}
-    for read_name_idx, read_name in enumerate(read_names_list):
-        
-        max_val = np.max(read_k_prob[read_name])
-
-        if max_val >thr_minprob:
-            best_k = cases[np.argmax(read_k_prob[read_name])]
-        else:
-            best_k=-1
-
-        best_k_dic[read_name]=best_k                
-    logging.debug("** best k"+str(Counter(best_k_dic.values())))
-    estimated_tax_dict={}
-    for index, row in merged.iterrows():
-        read_name   =row['read_name']   
-        if  read_name in  best_k_dic and best_k_dic[read_name]!=-1:
-            estimated_tax= row['taxon_tool_'+best_k_dic[read_name]]
-        else:
-            estimated_tax=0
-        estimated_tax_dict[read_name ]=estimated_tax
-
-    return best_k_dic,estimated_tax_dict
-
-
-
-
-def get_tp_binary_reads_cases(cases, read_names_list, tp_cases_dic):
+def get_tp_binary_reads_cases(read_names_list, reads_tp_cases):
 
     tp_binary_reads_cases={}
-    #case='k25'
+    cases=list(reads_tp_cases.keys())
     for case in cases:
         tp_binary_reads=[]    
         for read_name in read_names_list:
-            if read_name in tp_cases_dic[case]['TP'] :
+            if read_name in reads_tp_cases[case]:
                 tp_binary_reads.append(1) 
             else:
                 tp_binary_reads.append(0)
