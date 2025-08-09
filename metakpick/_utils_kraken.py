@@ -70,17 +70,16 @@ def limit_read_per_genome(merged,num_max):
             if counter_tax[tax_true]>num_max:
                 to_add=False 
             counter_tax[tax_true]+=1
-            
                 
         if to_add:
             readids_max.add(read_name)
-    len(merged), len(readids_max),len(counter_tax), counter_tax[tax_true],
-    merged2=merged.copy()
-    merged2a= merged2[merged2['read_name'].isin(readids_max)]
-    merged2a.reset_index(drop=True, inplace=True)
-    print(len(merged2a),len(merged))
+    print("limiting reads per genome",len(merged), len(readids_max),len(counter_tax), counter_tax[tax_true])
+    merged_limited=merged.copy()
+    merged_limited= merged[merged['read_name'].isin(readids_max)]
+    merged_limited.reset_index(drop=True, inplace=True)
+    print(len(merged_limited),len(merged))
 
-    return merged2a, readids_max
+    return merged_limited, readids_max
 
 
 
@@ -153,23 +152,23 @@ def def_cal(dfmerged_taxa,info,tree_df,parents,tax_level,col_name,tax_index):
 
 
 
-def find_true_ksize(cases,merged2a,info,tree_df,parents,tax_index, readids_max, level='species'):
-    case_dic_all={}
+def find_true_ksize(cases,merged,info,tree_df,parents,tax_index, readids_max, level='species'):
+    tp_cases_dic={}
     for case in cases:
         case1= 'taxon_tool_'+case
-        case_dic_all[case]=def_cal(merged2a,info,tree_df,parents,level,case1,tax_index) #+case
-    print(len(case_dic_all),len(case_dic_all[case]))
+        tp_cases_dic[case]=def_cal(merged,info,tree_df,parents,level,case1,tax_index) #+case
+    print(len(tp_cases_dic),len(tp_cases_dic[case]))
 
     true_k={}
     for read_idx, read_id in enumerate(readids_max):
         true_k[read_id]=set()
         for case_k, case in  enumerate(cases): # reversed(
             k = int(case[1:3])
-            if read_id in case_dic_all[case]['TP']:
+            if read_id in tp_cases_dic[case]['TP']:
                 true_k[read_id].add(k)
     print(len(true_k),len(true_k[read_id]))
 
-    return case_dic_all, true_k
+    return tp_cases_dic, true_k
 
 
 
@@ -254,5 +253,31 @@ def read_kraken_num(file,num_reads=1000):
                         tax_kmer_num_dic[tax]=num
                 dic_krak[read_id] = int(tax_krak), int(read_len), tax_kmer_dic, tax_kmer_num_dic
     return dic_krak
+
+
+
+def read_kraken_all(cases, classification_folder, readids_max, num_reads=10000):
+    print("read kraken's k-mer  count per tax")
+    #folder="/vast/blangme2/smajidi5/metagenomics/changek/simulatation/classification/" # 
+    #cases=['k19','k25','k31'] # ,'k21'
+    kraken_kmers_cases={}
+    for case in reversed(cases): # 
+        print(case)
+        try:
+            #dic_cases[case]=read_kraken_limited(folder+case+"_out",10000)
+            #dic_cases[case]=read_kraken(folder+case+"_out")
+            #dic_cases[case]=  _utils_kraken.read_kraken_set(folder+case+"_out",readids_max)
+            # todo: read the full file 
+            kraken_kmers_cases[case]=  read_kraken_num(classification_folder+case+"_out",num_reads)
+        except:
+            print("n",case)
+        print(case,len(kraken_kmers_cases[case]))
+    
+    read_names_cases=set()
+    for case_k, case in  enumerate(cases): 
+        read_ids_k=set(kraken_kmers_cases[case].keys())
+        read_names_cases |= read_ids_k
+    print("number of reads in kraken all cases",len(read_names_cases))
+    return kraken_kmers_cases, read_names_cases
 
 

@@ -6,32 +6,6 @@ from collections import Counter
 from sklearn.ensemble import RandomForestRegressor
 
 
-def read_kraken_all(cases, folder, readids_max):
-    print("read kraken's k-mer  count per tax")
-    #folder="/vast/blangme2/smajidi5/metagenomics/changek/simulatation/classification/" # 
-    #cases=['k19','k25','k31'] # ,'k21'
-    dic_cases={}
-    for case in reversed(cases): # 
-        print(case)
-        try:
-            #dic_cases[case]=read_kraken_limited(folder+case+"_out",10000)
-            #dic_cases[case]=read_kraken(folder+case+"_out")
-            #dic_cases[case]=  _utils_kraken.read_kraken_set(folder+case+"_out",readids_max)
-            # todo: read the full file 
-            dic_cases[case]=  _utils_kraken.read_kraken_num(folder+case+"_out",1000)
-        except:
-            print("n",case)
-        print(case,len(dic_cases[case]))
-    
-    cases_readids=set()
-    for case_k, case in  enumerate(cases): 
-        read_ids_k=set(dic_cases[case].keys())
-        cases_readids |= read_ids_k
-    len(cases_readids)
-    return dic_cases, cases_readids
-
-
-
 
 
 
@@ -111,20 +85,36 @@ def get_features_tax(tax_krak, info, parents, tax_kmer_num_dic, depth_reported, 
         else:  # depth_reported > taxi_depth: towards root (shallower)
             kmer_other_reported_uppertax += tax_kmer_num_dic[taxi]
     
-    features+=[kmer_reported_tax, kmer_reported_uppertax,kmer_reported_belowtax,
+    features =[kmer_reported_tax, kmer_reported_uppertax,kmer_reported_belowtax,
         kmer_reported_tax/rlen, kmer_reported_uppertax/rlen,kmer_reported_belowtax/rlen,
         kmer_other_reported_tax, kmer_other_reported_uppertax,kmer_other_reported_belowtax,
         kmer_other_reported_tax/rlen, kmer_other_reported_uppertax/rlen,kmer_other_reported_belowtax/rlen]
     
     #feature_names+=['kmer_reported_tax','kmer_tax_above','kmer_tax_below','kmer_tax/rlen','kmer_tax_above/rlen','kmer_tax_below/rlen','kmer_othertax','kmer_othertax_above','kmer_othertax_below','kmer_othertax/rlen','kmer_othertax_above/rlen','kmer_othertax_below/rlen',]
-    return features
+    return features, below_tax_all_perread
+
+def get_features_half_read(tax_krak, tax_kmer_dic, rlen, below_tax_all_perread):
+    tax_krak_touse=tax_krak
+    if tax_krak not in tax_kmer_dic: # when lca is reprorted, use onf its lower ones. 
+        tax_krak_touse= below_tax_all_perread[0]
+    segment_num=2 # 3
+    segment_len=int(rlen/segment_num)
+    pos_num_reportedtax = tax_kmer_dic[tax_krak_touse] # [(77, 1), (136, 4), (139, 2), (144, 4), (148, 2), (162, 2), (233, 1)]
+    cnt_perbin=np.zeros((segment_num,1))
+    for pos,numkmer in pos_num_reportedtax:
+        bin_idx= int(pos/segment_len)
+        cnt_perbin[bin_idx]+=numkmer
+    diff_fromnext_seg = [ np.abs(cnt_perbin[segment_i+1]-cnt_perbin[segment_i])[0] for segment_i in range(segment_num-1)]
+    
+    feature_half_read = [np.mean(diff_fromnext_seg)]
+    return feature_half_read
 
 
 
 
 
 
-def get_features_all(read_names_list, tax2path, dic_cases, cases, read_tax_depth, tax2depth, info, parents, classification_folder):
+def get_features_all(read_names_list, tax2path, kraken_kmers_cases, cases, read_tax_depth, tax2depth, info, parents, classification_folder):
         
     feature_names = ['mean_all', 'mean_nonzero', 'max', 'sum', 'mean_exc_tax', 'mean_all/rlen', 'mean_nonzero/rlen', 'max/rlen', 'sum/rlen', 'mean_exc_tax/rlen', 
                 'depth_reported_tax', 'Avg_kmer_consecutive', 'WAvg_kmer_consecutive', 'kmer_reported_tax', 'kmer_tax_above', 'kmer_tax_below', 
@@ -133,28 +123,30 @@ def get_features_all(read_names_list, tax2path, dic_cases, cases, read_tax_depth
 
     
     num_nodes_tree = len(tax2path)  # 52229
-    read_names_ = list(read_names_list)
+    
     dic_matrix2={}
     for case in cases[::-1]: 
         print(case)
         kmer_size= int(case[1:])
         X3=[]
-        for read_idx,read_id in enumerate(read_names_[:100]):
+        for read_idx,read_id in enumerate(read_names_list):
             if read_idx%10000==0:
-                print(read_idx,len(read_names_))
-            if read_id not in dic_cases[case]:
+                print(read_idx,len(read_names_list))
+            if read_id not in kraken_kmers_cases[case]:
                 features=np.zeros(len(feature_names))
                 X3.append(features)
                 continue 
 
-            tax_krak, rlen, tax_kmer_dic, tax_kmer_num_dic = dic_cases[case][read_id]  # read length
+            tax_krak, rlen, tax_kmer_dic, tax_kmer_num_dic = kraken_kmers_cases[case][read_id]  # read length
             kmer_reported_tax = tax_kmer_num_dic.get(tax_krak, 0)  # kraken tax may be LCA of others
 
-            features = get_features_read(tax_kmer_num_dic, num_nodes_tree, kmer_reported_tax, rlen)
+            features_read = get_features_read(tax_kmer_num_dic, num_nodes_tree, kmer_reported_tax, rlen)
             features_depth= get_features_depth(case, read_id, read_tax_depth, tax2depth,tax_krak,tax_kmer_dic)
             depth_reported = tax2depth[tax_krak]
-            features_tax = get_features_tax(tax_krak, info, parents, tax_kmer_num_dic, depth_reported, tax2depth, kmer_reported_tax, rlen)
-            features=np.concatenate([features, features_depth, features_tax])
+            features_tax, below_tax_all_perread = get_features_tax(tax_krak, info, parents, tax_kmer_num_dic, depth_reported, tax2depth, kmer_reported_tax, rlen)
+
+            feature_half_read = get_features_half_read(tax_krak, tax_kmer_dic, rlen, below_tax_all_perread)
+            features=features_read + features_depth+ features_tax+ feature_half_read 
 
             X3.append(features)
         X3=np.array(X3)
@@ -174,7 +166,7 @@ def train_RF_model(X_input,Y_input):
 
 
 
-def train_RF_model_all(cases, features, true_k,read_names_list):
+def train_RF_model_all(cases, features, tp_binary_reads_cases,read_names_list):
 
     num_reads=len(read_names_list)
     read_k_prob={}
@@ -182,12 +174,12 @@ def train_RF_model_all(cases, features, true_k,read_names_list):
         read_k_prob[read_name]=np.zeros(len(cases))    
     regr_dic = {}
     for case_idx, case in enumerate(cases):
-        X_input = features[case_idx]
-        Y_input = true_k[case_idx]
+        X_input = features[case]
+        Y_input = tp_binary_reads_cases[case]
 
         regr_dic[case] = train_RF_model(X_input, Y_input)
 
-        print(X_input.shape, Y_input.shape)
+        print(X_input.shape, len(Y_input))
 
         y_pred = regr_dic[case].predict(X_input)
         y_pred_binary = np.round(y_pred)  # round(0.55)=1
@@ -205,12 +197,12 @@ def train_RF_model_all(cases, features, true_k,read_names_list):
 
 def get_best_tax(read_k_prob,cases,read_names_list,merged,thr_minprob=0.5):
     best_k_dic={}
-    for read_name in read_names_list:
-        best_k= cases[np.argmax(read_k_prob[read_name])]
-        max_val = np.max(read_k_prob[read_name])
+    for read_name_idx, read_name in enumerate(read_names_list):
+        best_k= cases[np.argmax(read_k_prob[read_name_idx])]
+        max_val = np.max(read_k_prob[read_name_idx])
 
         if max_val >thr_minprob:
-            best_k = cases[np.argmax(read_k_prob[read_name])]
+            best_k = cases[np.argmax(read_k_prob[read_name_idx])]
         else:
             best_k=-1
 
@@ -226,3 +218,24 @@ def get_best_tax(read_k_prob,cases,read_names_list,merged,thr_minprob=0.5):
         estimated_tax_dict[read]=estimated_tax
 
     return best_k_dic,estimated_tax_dict
+
+
+
+
+def get_tp_binary_reads_cases(cases, read_names_list, tp_cases_dic):
+
+    tp_binary_reads_cases={}
+    #case='k25'
+    for case in cases:
+        tp_binary_reads=[]    
+        for read_id in read_names_list:
+            if read_id in tp_cases_dic[case]['TP'] :
+                tp_binary_reads.append(1) 
+            else:
+                tp_binary_reads.append(0)
+        tp_binary_reads_cases[case] = tp_binary_reads
+        
+    print(len(tp_binary_reads_cases),len(tp_binary_reads_cases[case]),len(read_names_list),sum(tp_binary_reads_cases[case]))
+    for case in cases:
+        print(case ,Counter(tp_binary_reads_cases[case]))
+    return tp_binary_reads_cases
