@@ -156,17 +156,17 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, cases, read_
     return dic_matrix2
 
 
-def train_RF_model(X_input,Y_input):
-    regr = RandomForestRegressor(n_estimators=1000,  
-                                    max_features=float(0.8), #1.0 all 
-                                    max_leaf_nodes=50,
-                                    random_state=14, verbose=True, n_jobs=20)  # “log2” sqrt # max_depth=10,  'log2' min_samples_leaf=10)  # 
+def train_RF_model(X_input,Y_input,n_estimators=1000, max_features=float(0.8), max_leaf_nodes=50, random_state=14, n_jobs=1):
+    regr = RandomForestRegressor(n_estimators=n_estimators,  
+                                    max_features=max_features, #1.0 all 
+                                    max_leaf_nodes=max_leaf_nodes,
+                                    random_state=random_state, verbose=True, n_jobs=n_jobs)  # “log2” sqrt # max_depth=10,  'log2' min_samples_leaf=10)  # 
     regr.fit(X_input, Y_input)
     return regr
 
 
 
-def train_RF_model_all(cases, features, tp_binary_reads_cases,read_names_list):
+def train_RF_model_all(cases, features, tp_binary_reads_cases,read_names_list,n_estimators, max_features, max_leaf_nodes, random_state, n_jobs=1):
 
     num_reads=len(read_names_list)
     read_k_prob={}
@@ -177,7 +177,7 @@ def train_RF_model_all(cases, features, tp_binary_reads_cases,read_names_list):
         X_input = features[case]
         Y_input = tp_binary_reads_cases[case]
 
-        regr_dic[case] = train_RF_model(X_input, Y_input)
+        regr_dic[case] = train_RF_model(X_input, Y_input, n_estimators, max_features, max_leaf_nodes, random_state, n_jobs)
 
         print(X_input.shape, len(Y_input))
 
@@ -191,18 +191,18 @@ def train_RF_model_all(cases, features, tp_binary_reads_cases,read_names_list):
         read_k_prob[read_name][case_idx]= y_pred_binary[read_name_idx]
 
 
-    return regr_dic
+    return regr_dic,read_k_prob
 
 
 
 def get_best_tax(read_k_prob,cases,read_names_list,merged,thr_minprob=0.5):
     best_k_dic={}
     for read_name_idx, read_name in enumerate(read_names_list):
-        best_k= cases[np.argmax(read_k_prob[read_name_idx])]
-        max_val = np.max(read_k_prob[read_name_idx])
+        best_k= cases[np.argmax(read_k_prob[read_name])]
+        max_val = np.max(read_k_prob[read_name])
 
         if max_val >thr_minprob:
-            best_k = cases[np.argmax(read_k_prob[read_name_idx])]
+            best_k = cases[np.argmax(read_k_prob[read_name])]
         else:
             best_k=-1
 

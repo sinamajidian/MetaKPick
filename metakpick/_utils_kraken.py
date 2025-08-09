@@ -3,14 +3,19 @@ import os
 import pandas as pd
 import _utils_tree
 from collections import Counter
+import logging
+
+def read_truth_file(truth_file):
+    merged = pd.read_csv(truth_file, names=["read_name", "taxon"])
+    return merged
 
 
 def read_kraken_classification(cases, truth_file, classification_folder):
     
     #cases=cases[:-1]; for k in range(20,26): cases.append("k"+str(k)+"l15")
-    print(len(cases),cases)
+    logging.debug("Number of cases of kmer sizes: "+str(len(cases))+" "+str(cases))
     tool_res_files=[]
-    print(classification_folder)
+    logging.debug(classification_folder)
     for case in cases: 
         f=classification_folder+case+"_out.csv"
         tool_res_files.append(f)
@@ -26,11 +31,12 @@ def read_kraken_classification(cases, truth_file, classification_folder):
     # merging only gets the intersection of all (which is fine, files should have all)
 
     column_names = list(merged.columns)
-    print(len(merged),column_names )
+    logging.debug("Number of reads in merged: "+str(len(merged))+" "+str(column_names))
     return merged 
 
 
 def get_tax_depth(merged, cases, info,parents):
+    logging.debug("Getting the tax depth")
     read_tax_depth={}
     for case in cases: 
         read_tax_depth[case]={}
@@ -46,9 +52,9 @@ def get_tax_depth(merged, cases, info,parents):
                 tocheck_=taxid
             read_tax_depth[case][row['read_name']]=depth
             
-    print(tocheck_)
-    print(len(read_tax_depth),len(read_tax_depth[case]))
-    print(Counter(read_tax_depth[case].values()))
+    
+    logging.debug("Number of reads in read_tax_depth: "+str(len(read_tax_depth))+" "+str(len(read_tax_depth[case])))
+    logging.debug("Counter of read_tax_depth: "+str(Counter(read_tax_depth[case].values())))
 
     return read_tax_depth   
 
@@ -73,18 +79,18 @@ def limit_read_per_genome(merged,num_max):
                 
         if to_add:
             readids_max.add(read_name)
-    print("limiting reads per genome",len(merged), len(readids_max),len(counter_tax), counter_tax[tax_true])
+    logging.debug("limiting reads per genome: "+str(len(merged))+" "+str(len(readids_max))+" "+str(len(counter_tax))+" "+str(counter_tax[tax_true]))
     merged_limited=merged.copy()
     merged_limited= merged[merged['read_name'].isin(readids_max)]
     merged_limited.reset_index(drop=True, inplace=True)
-    print(len(merged_limited),len(merged))
+    logging.debug("Number of reads in merged_limited: "+str(len(merged_limited))+" "+str(len(merged)))
 
     return merged_limited, readids_max
 
 
 
 
-def def_cal(dfmerged_taxa,info,tree_df,parents,tax_level,col_name,tax_index):
+def calculate_tp_fp(dfmerged_taxa,info,tree_df,parents,tax_level,col_name,tax_index):
 
     #print(tax_level)
     cases_dic={"TP":set(),"FP-level-notindex":set(), 'FP-higher-notindex':set(),"FP-level-index":set(), 'FP-higher-index':set(),
@@ -156,7 +162,7 @@ def find_true_ksize(cases,merged,info,tree_df,parents,tax_index, readids_max, le
     tp_cases_dic={}
     for case in cases:
         case1= 'taxon_tool_'+case
-        tp_cases_dic[case]=def_cal(merged,info,tree_df,parents,level,case1,tax_index) #+case
+        tp_cases_dic[case]= calculate_tp_fp(merged,info,tree_df,parents,level,case1,tax_index) #+case
     print(len(tp_cases_dic),len(tp_cases_dic[case]))
 
     true_k={}
