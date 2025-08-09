@@ -9,7 +9,7 @@ def apply_RF_model(cases,tp_binary_reads_cases,  features_cases,read_names_list,
     for read_name in read_names_list:
         read_k_prob[read_name]=np.zeros(len(cases))    
     regr_dic = {}
-    y_pred_binary_={}
+
     for case_idx, case in enumerate(cases):
         X_input = features_cases[case]
         Y_input = tp_binary_reads_cases[case]
@@ -28,27 +28,25 @@ def apply_RF_model(cases,tp_binary_reads_cases,  features_cases,read_names_list,
     return read_k_prob
 
 
-def calculate_accuracy(y_pred,y_true):
-    y_pred_binary=np.round(y_pred)
-    accuracy=sum([1 for i in range(len(y_pred)) if y_pred_binary[i] == y_true[i]]) / len(y_true)
+def calculate_accuracy(y_pred_prob,y_true):
+    y_pred_binary=np.round(y_pred_prob)
+    accuracy=sum([1 for i in range(len(y_true)) if y_pred_binary[i] == y_true[i]]) / len(y_true)
     logging.debug(" Accuracy of regression model is "+str(accuracy))
     return accuracy
 
 
 
-def get_best_tax(read_k_prob,cases,read_names_list,kraken_kmers_cases,thr_minprob=0.5):
+def get_best_tax(read_k_prob,read_names_list,kraken_kmers_cases,thr_minprob=0.5):
 
+    cases=list(kraken_kmers_cases.keys())
     best_k_dic={}
     estimated_tax_dict={}
     for read_name in read_names_list:
-        
         max_val = np.max(read_k_prob[read_name])
-
         if max_val >thr_minprob:
             best_k = cases[np.argmax(read_k_prob[read_name])]
         else:
             best_k=-1
-
         best_k_dic[read_name]=best_k                
         if  best_k!=-1:
             estimated_tax= kraken_kmers_cases[best_k][read_name][0]

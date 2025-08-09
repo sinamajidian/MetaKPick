@@ -46,16 +46,16 @@ def calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_l
         tp_cases_dic[case]=read_tpfp_dic_case['TP']
 
     cases=list(kraken_kmers_cases.keys())
-    true_k={}
+    reads_tp_cases={}
     for read_name in read_names_list:
-        true_k[read_name]=set()
+        reads_tp_cases[read_name]=set()
         for case_k, case in  enumerate(cases): 
             k = int(case[1:3])
             if read_name in tp_cases_dic[case]:
-                true_k[read_name].add(k)
-    logging.debug("Number of reads in the case TP : "+str(len(true_k)))
-    logging.debug("Number of kmer sizes in the TP for read"+read_name+" : "+str(len(true_k[read_name])))
-    return true_k
+                reads_tp_cases[read_name].add(k)
+    logging.debug("Number of reads in the case TP : "+str(len(reads_tp_cases)))
+    logging.debug("Number of kmer sizes in the TP for read"+read_name+" : "+str(len(reads_tp_cases[read_name])))
+    return reads_tp_cases
 
 
 
@@ -120,7 +120,7 @@ def calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_l
 #             #classified ,read_id, tax_krak, read_len, dic = line_split
 #             read_id=line_split[1]
 #             if read_id in readids_max:
-#                 file_out.write(line+"\n")
+#                 file_out.write(line.strip()+"\n")
 #         file_in.close()
 #         file_out.close()
 
@@ -131,7 +131,7 @@ def calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_l
 #     #classified ,read_id, tax_krak, read_len, dic = line_split
 #     read_id=line_split[0]
 #     if read_id in readids_max:
-#         file_out.write(line+"\n")
+#         file_out.write(line.strip()+"\n")
 # file_in.close()
 # file_out.close()
 
@@ -389,7 +389,7 @@ def read_kraken_file(kraken_file):
                     tax_kmer_num_dic[tax]=num
             kraken_read_info = int(tax_krak), int(read_len), tax_kmer_dic, tax_kmer_num_dic
         elif classified=="U":
-            read_id, tax_krak, read_len, tax_kmers = line_split
+            
             kraken_read_info = 0, int(read_len), {}, {}
         else:
             print("Error: ",line_split)

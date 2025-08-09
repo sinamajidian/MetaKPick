@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 import _utils_kraken
 import _utils_tree
-
+import _classifier
 
 def get_features_read(tax_kmer_num_dic, num_nodes_tree,kmer_reported_tax,rlen):
     
@@ -134,7 +134,7 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_dep
         kmer_size= int(case[1:])
         X3=[]
         for read_idx,read_name in enumerate(read_names_list):
-            if read_idx%10000==0:
+            if read_idx%20000==0:
                 logging.debug("Working on read idx: "+str(read_idx)+"  out of "+str(len(read_names_list)))
 
             reported_tax, rlen, tax_kmer_dic, tax_kmer_num_dic = kraken_kmers_cases[case][read_name]  # read length
@@ -160,7 +160,7 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_dep
         X3=np.array(X3)
         features_cases[case]=X3    
 
-    logging.debug("number of kmer sizes"+str(len(features_cases))+" number of reads"+str(len(features_cases[case]))+" number of features"+str(len(features_cases[case][0])))
+    logging.debug("number of kmer sizes "+str(len(features_cases))+" number of reads "+str(len(features_cases[case]))+" number of features "+str(len(features_cases[case][0])))
     return features_cases, feature_names
 
 
@@ -186,20 +186,26 @@ def train_RF_model_all(features_cases, tp_binary_reads_cases,read_names_list,n_e
         regr_dic[case] = train_RF_model(X_input, Y_input, n_estimators, max_features, max_leaf_nodes, random_state, n_jobs)
 
         logging.debug("X_input.shape "+str(X_input.shape)+" len(Y_input) "+str(len(Y_input)))
+        
+        y_pred_prob=regr_dic[case].predict(X_input)
+        accuracy= _classifier.calculate_accuracy(y_pred_prob,Y_input)
+        logging.debug("Accuracy for case "+str(case)+" is "+str(accuracy))
 
 
-    return regr_dic
+    return regr_dic, 
 
 
 
-def get_tp_binary_reads_cases(read_names_list, reads_tp_cases):
+def get_tp_binary_reads_cases(cases, read_names_list, reads_tp_cases):
 
     tp_binary_reads_cases={}
-    cases=list(reads_tp_cases.keys())
     for case in cases:
+        logging.debug("TP for case "+str(case))
         tp_binary_reads=[]    
         for read_name in read_names_list:
-            if read_name in reads_tp_cases[case]:
+            true_k_set= reads_tp_cases[read_name]
+            kmer= int(case[1:])
+            if kmer in true_k_set:
                 tp_binary_reads.append(1) 
             else:
                 tp_binary_reads.append(0)
