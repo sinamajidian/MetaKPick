@@ -471,7 +471,7 @@ def read_kraken_all(cases, classification_folder): # , readids_max, num_reads=10
     #folder="/vast/blangme2/smajidi5/metagenomics/changek/simulatation/classification/" # 
     #cases=['k19','k25','k31'] # ,'k21'
     kraken_kmers_cases={}
-    for case in reversed(cases): 
+    for case in cases: 
         print(case)
         kraken_kmers_cases[case]=  read_kraken_file(classification_folder+case+"_out")
         logging.info(case+" "+str(len(kraken_kmers_cases[case])))

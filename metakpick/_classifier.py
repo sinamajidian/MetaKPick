@@ -4,23 +4,21 @@ from collections import Counter
 
 
 
-def apply_RF_model(cases,tp_binary_reads_cases,  features_cases,read_names_list,regr_dic,n_estimators, max_features, max_leaf_nodes, random_state, n_jobs=1):
+def apply_RF_model(features_cases,read_names_list,loaded_regression_dic):
+    cases=list(loaded_regression_dic.keys())
     read_k_prob={}
     for read_name in read_names_list:
         read_k_prob[read_name]=np.zeros(len(cases))    
-    regr_dic = {}
+    
 
     for case_idx, case in enumerate(cases):
         X_input = features_cases[case]
-        Y_input = tp_binary_reads_cases[case]
+        
+        y_pred = loaded_regression_dic[case].predict(X_input)
 
-        #regr_dic[case] = _training.train_RF_model(X_input, Y_input, n_estimators, max_features, max_leaf_nodes, random_state, n_jobs)
-
-        logging.debug("X_input.shape "+str(X_input.shape)+" len(Y_input) "+str(len(Y_input)))
-
-        y_pred = regr_dic[case].predict(X_input)
+        logging.debug("X_input.shape "+str(X_input.shape)+" y_pred.shape "+str(y_pred.shape))
         #y_pred_binary = np.round(y_pred)  # round(0.55)=1
-        logging.debug("regr_dic[case]"+str(regr_dic[case]))
+        #logging.debug("loaded_regression_dic[case]"+str(loaded_regression_dic[case]))
 
     for read_name_idx,read_name in enumerate(read_names_list):        
         read_k_prob[read_name][case_idx]= y_pred[read_name_idx]

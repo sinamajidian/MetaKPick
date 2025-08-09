@@ -64,7 +64,7 @@ def main():
         classification_folder=folder_input 
         cases=[i.split("_")[0] for i in os.listdir(classification_folder) if i.endswith('_out')] #["k"+str(k) for k in range(15,32)]
 
-        cases=cases[4:5]+cases[-1:]
+        cases=cases[2:]#[4:5]+cases[-1:]
         #logging.info("Reading the kraken classification")
         #merged  = _utils_kraken.read_kraken_classification(cases, truth_file, classification_folder )
         # # todo: get the read set first, then 
@@ -115,45 +115,50 @@ def main():
         classification_folder=folder_input 
         cases=[i.split("_")[0] for i in os.listdir(classification_folder) if i.endswith('_out')] #["k"+str(k) for k in range(15,32)]
 
-        cases=cases[4:5]+cases[-1:]
-        logging.info("Classifying the reads")
-        logging.info("Loading the model")
-        model_files =[ model_file for  model_file in os.listdir(workingdir) if model_file.endswith(".pkl") and model_file.startswith("Random_Forest_regression_models")]
+        #cases=cases[4:5]+cases[-1:]
+        #logging.info("Classifying the reads")
+        #logging.info("Loading the model")
+        model_folder=workingdir+"results/"
+        model_files =[ model_file for  model_file in os.listdir(model_folder) if model_file.endswith(".pkl") and model_file.startswith("Random_Forest_regression_models")]
         model_files.sort()
         model_file=model_files[-1]
-        model_time_stamp=model_file.split("_")[1]
-        model_file=workingdir+"Random_Forest_regression_models"+model_time_stamp+".pkl" 
-        print(model_file)
-        loaded_regression_dic= pickle.load(open(model_file, "rb"))
-        #output_file_name= _training.write_estimated_tax(estimated_tax_dict,output_file_name=workingdir+"estimated_tax.csv")
+        #model_time_stamp=model_file.split("_")[1] # model_file=workingdir+"Random_Forest_regression_models"+model_time_stamp+".pkl" 
+        logging.info("Loading the model: "+model_file+" in the folder: "+model_folder)
+        loaded_regression_dic= pickle.load(open(model_folder+model_file, "rb"))
+        logging.info("Model loaded")
+        
         classify_folder=workingdir+"../changek/simulatation/classification/max15/"
-
         cases_classify =[i.split("_")[0] for i in os.listdir(classification_folder) if i.endswith('_out')]
-
         cases_model= list(loaded_regression_dic.keys())
         cases_classify_intersect=set(cases_classify).intersection(set(cases_model))
         logging.info("Cases in the input for classification: "+str(cases_classify))
         logging.info("Cases in the model: "+str(cases_model))
-        logging.info("Cases in the input for classification and in the model: "+str(cases_classify_intersect))
+        logging.warning("Working on the intersection of cases in the input for classification and in the model: "+str(cases_classify_intersect))
 
         
-        logging.info("Reading the kraken kmers")
-        read_names_list, kraken_kmers_cases = _utils_kraken.read_kraken_all(cases_classify_intersect, classify_folder, set(), 1e10 )
-        print(kraken_kmers_cases)
-
-        read_k_prob= _classifier.apply_RF_model(cases_classify_intersect,kraken_kmers_cases,loaded_regression_dic,read_names_list)
+        logging.info("Reading the kraken kmers for these cases")
+        read_names_list, kraken_kmers_cases = _utils_kraken.read_kraken_all(cases_classify_intersect, classify_folder)
+        logging.info("Number of reads in the kraken kmers: "+str(len(kraken_kmers_cases)))
+        logging.info("Getting the tax depth")
+        read_tax_depth = _utils_kraken.get_tax_depth(kraken_kmers_cases, info,parents)
+        logging.info("Getting the features")
+        features_cases, feature_names = _training.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents)
+        logging.info("Cases in features: "+str(features_cases.keys()))
+        logging.info("Applying the model")
+        
+        read_k_prob= _classifier.apply_RF_model(features_cases,read_names_list,loaded_regression_dic)
+        logging.info("Number of reads in the read_k_prob: "+str(len(read_k_prob)))
 
         logging.info("Getting the best tax")
         best_k_dic, estimated_tax_dict = _classifier.get_best_tax(read_k_prob,read_names_list,kraken_kmers_cases,thr_minprob=0.5) 
         logging.info("Writing the estimated tax")
-        output_file_name=workingdir+"../results/estimated_tax.csv"
+        output_file_name=workingdir+"results/estimated_tax.csv"
         output_file_name= _training.write_estimated_tax(estimated_tax_dict,output_file_name)
-
 
 
         logging.info("Number of reads in the dic_tax_estimated: "+str(len(estimated_tax_dict)))
         read_tpfp_dic= _utils_kraken.calculate_tp_fp('predicted_tax',estimated_tax_dict,dic_tax_truth,info,tree_df,parents,'species',tax_index)
-        logging.info("Number of reads in the TP: "+str(len(dic_tax_truth['TP'])))
+        logging.info("Number of reads in the TP: "+str(len(read_tpfp_dic['TP'])))
         
         logging.info("Calculating the tp fp")
         tool="RF"
