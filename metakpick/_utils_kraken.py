@@ -272,8 +272,10 @@ def read_kraken_all(cases, classification_folder, readids_max, num_reads=10000):
         try:
             #dic_cases[case]=read_kraken_limited(folder+case+"_out",10000)
             #dic_cases[case]=read_kraken(folder+case+"_out")
-            kraken_kmers_cases[case]=  read_kraken_set(classification_folder+case+"_out",readids_max)
-            # kraken_kmers_cases[case]=  read_kraken_num(classification_folder+case+"_out",num_reads)
+            if readids_max:
+                kraken_kmers_cases[case]=  read_kraken_set(classification_folder+case+"_out",readids_max)
+            else:
+                kraken_kmers_cases[case]=  read_kraken_num(classification_folder+case+"_out",num_reads)
         except:
             print("n",case)
         print(case,len(kraken_kmers_cases[case]))

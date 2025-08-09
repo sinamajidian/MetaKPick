@@ -42,7 +42,7 @@ def main():
     # parser.add_argument('--threads', type=int, help='Number of threads')
 
     mode='train'
-    #mode="train"
+    mode="test"
     if mode=='train' or mode=='test':
         workingdir="/vast/blangme2/smajidi5/metagenomics/metakpick_project/MetaKPick/"
         in_folder= workingdir+"../files/"
@@ -57,14 +57,16 @@ def main():
         classification_folder=folder_input+"classification/" 
         cases=[i.split("_")[0] for i in os.listdir(classification_folder) if i.endswith('_out')] #["k"+str(k) for k in range(15,32)]
 
-        cases=cases#[4:5]
+        cases=cases[4:5]+cases[-1:]
+
+        
         logging.info("Reading the kraken classification")
         merged  = _utils_kraken.read_kraken_classification(cases, truth_file, classification_folder )
         logging.info("Getting the tax depth")
         read_tax_depth = _utils_kraken.get_tax_depth(merged,cases, info,parents)
         # todo: get the read set first, then 
         logging.info("Limiting the reads per genome")
-        num_max=15
+        num_max=5
         merged_limited, readids_max = _utils_kraken.limit_read_per_genome(merged,num_max)
         
     if mode=="train":
@@ -121,7 +123,7 @@ def main():
         logging.info("Calculating the tp fp")
         # for case1 in ['taxon_tool_k'+str(k) for k in  [19,21,25,31]]+["oracle_____","RF_allk", "Random_allk" , "RF_allk",'RF_allk_tog']:
         for case1 in ['RF' ]: # ['taxon_tool_'+case for case in cases]  #,'RF_oneByone' , "RF_allk",'RF_allk_tog'
-            cases_dic_=_utils_kraken.calculate_tp_fp(merged,info,tree_df,parents,'species',case1,tax_index) #+case
+            cases_dic_=_utils_kraken.calculate_tp_fp(merged_limited,info,tree_df,parents,'species',case1,tax_index) #+case
             FP=len(cases_dic_['FP-level-index'])+len(cases_dic_['FP-higher-index'])+len(cases_dic_['FP-level-notindex'])+len(cases_dic_['FP-higher-notindex'])
             recall=len(cases_dic_['TP'])/(len(cases_dic_['TP']) + len(cases_dic_['VP']) + len(cases_dic_['FN']) +FP )
             if len(cases_dic_['TP'])!=0:
@@ -150,6 +152,20 @@ def main():
         print(model_file)
         regr_dic= pickle.load(open(model_file, "rb"))
         #output_file_name= _training.write_estimated_tax(estimated_tax_dict,output_file_name=workingdir+"estimated_tax.csv")
+        classify_folder=workingdir+"../../changek/simulatation/classification/"
+
+        cases_classify =[i.split("_")[0] for i in os.listdir(classification_folder) if i.endswith('_out')]
+
+        cases_model= list(regr_dic.keys())
+        cases_classify_intersect=set(cases_classify).intersection(set(cases_model))
+        logging.info("Cases in the input for classification: "+str(cases_classify))
+        logging.info("Cases in the model: "+str(cases_model))
+        logging.info("Cases in the input for classification and in the model: "+str(cases_classify_intersect))
+
+        
+        logging.info("Reading the kraken kmers")
+        kraken_kmers_cases, read_names_cases = _utils_kraken.read_kraken_all(cases_classify_intersect, classify_folder, set(), 1e10 )
+        print(kraken_kmers_cases)
 
 
 
