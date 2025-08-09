@@ -1,11 +1,12 @@
-import _utils_kraken
-import _utils_tree
+
 
 import numpy as np
 from collections import Counter
 from sklearn.ensemble import RandomForestRegressor
+import logging
 
-
+import _utils_kraken
+import _utils_tree
 
 
 
@@ -126,12 +127,12 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, cases, read_
     
     dic_matrix2={}
     for case in cases[::-1]: 
-        print(case)
+        logging.debug("working on case: "+case)
         kmer_size= int(case[1:])
         X3=[]
         for read_idx,read_id in enumerate(read_names_list):
             if read_idx%10000==0:
-                print(read_idx,len(read_names_list))
+                logging.debug("Working on read idx: "+str(read_idx)+"  out of "+str(len(read_names_list)))
             if read_id not in kraken_kmers_cases[case]:
                 features=np.zeros(len(feature_names))
                 X3.append(features)
@@ -152,7 +153,7 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, cases, read_
         X3=np.array(X3)
         dic_matrix2[case]=X3    
 
-    print("number of kmer sizes",len(dic_matrix2),"number of reads",len(dic_matrix2[case]),len(dic_matrix2[case][0]))
+    logging.debug("number of kmer sizes"+str(len(dic_matrix2))+" number of reads"+str(len(dic_matrix2[case]))+" number of features"+str(len(dic_matrix2[case][0])))
     return dic_matrix2
 
 
@@ -179,12 +180,12 @@ def train_RF_model_all(cases, features, tp_binary_reads_cases,read_names_list,n_
 
         regr_dic[case] = train_RF_model(X_input, Y_input, n_estimators, max_features, max_leaf_nodes, random_state, n_jobs)
 
-        print(X_input.shape, len(Y_input))
+        logging.debug("X_input.shape"+str(X_input.shape)+" len(Y_input)"+str(len(Y_input)))
 
         y_pred = regr_dic[case].predict(X_input)
         y_pred_binary = np.round(y_pred)  # round(0.55)=1
-        print(regr_dic[case])
-        print(sum([1 for i in range(len(y_pred)) if y_pred_binary[i] == Y_input[i]]) / len(Y_input))
+        logging.debug("regr_dic[case]"+str(regr_dic[case]))
+        logging.debug("sum([1 for i in range(len(y_pred)) if y_pred_binary[i] == Y_input[i]]) / len(Y_input)"+str(sum([1 for i in range(len(y_pred)) if y_pred_binary[i] == Y_input[i]]) / len(Y_input)))
         # sklearn.metrics.confusion_matrix(y_train, y_traing_pred)
 
     for read_name_idx,read_name in enumerate(read_names_list):        
@@ -207,15 +208,15 @@ def get_best_tax(read_k_prob,cases,read_names_list,merged,thr_minprob=0.5):
             best_k=-1
 
         best_k_dic[read_name]=best_k                
-    print(Counter(best_k_dic.values()))
+    logging.debug("best k"+str(Counter(best_k_dic.values())))
     estimated_tax_dict={}
     for index, row in merged.iterrows():
-        read=row['read_name']   
-        if  read in  best_k_dic and best_k_dic[read]!=-1:
-            estimated_tax= row['taxon_tool_'+best_k_dic[read]]
+        read_name   =row['read_name']   
+        if  read_name in  best_k_dic and best_k_dic[read_name]!=-1:
+            estimated_tax= row['taxon_tool_'+best_k_dic[read_name]]
         else:
             estimated_tax=0
-        estimated_tax_dict[read]=estimated_tax
+        estimated_tax_dict[read_name ]=estimated_tax
 
     return best_k_dic,estimated_tax_dict
 
@@ -235,7 +236,7 @@ def get_tp_binary_reads_cases(cases, read_names_list, tp_cases_dic):
                 tp_binary_reads.append(0)
         tp_binary_reads_cases[case] = tp_binary_reads
         
-    print(len(tp_binary_reads_cases),len(tp_binary_reads_cases[case]),len(read_names_list),sum(tp_binary_reads_cases[case]))
+    logging.debug("len(tp_binary_reads_cases)"+str(len(tp_binary_reads_cases))+" len(tp_binary_reads_cases[case])"+str(len(tp_binary_reads_cases[case]))+" len(read_names_list)"+str(len(read_names_list))+" sum(tp_binary_reads_cases[case])"+str(sum(tp_binary_reads_cases[case])))
     for case in cases:
-        print(case ,Counter(tp_binary_reads_cases[case]))
+        logging.debug("case"+str(case)+" Counter(tp_binary_reads_cases[case])"+str(Counter(tp_binary_reads_cases[case])))
     return tp_binary_reads_cases

@@ -47,7 +47,7 @@ def get_tax_info(tree_file,tax_genome_file):
     tax_genome = set()
     for line in tax_genome_f:
         tax_genome.add(int(line.strip()))
-    print('Number of genomes/strain ',len(tax_genome),"in kraken index")
+    logging.debug('Number of genomes/strain ',len(tax_genome),"in kraken index")
 
     tax_index_=[]
     tax_notfound=[]
@@ -58,8 +58,8 @@ def get_tax_info(tree_file,tax_genome_file):
         else:
             tax_notfound.append(tax_)
     tax_index =set(tax_index_) # all the tax in genomes of kraken, plus all up to root 
-    print('Number of tax ids',len(tax_index),len(tax_index_)) # 
-    print("Genome tax not found in kraken tree",tax_notfound)
+    logging.debug('Number of tax ids'+str(len(tax_index))+" "+str(len(tax_index_))) # 
+    logging.debug("Genome tax not found in kraken tree"+str(tax_notfound))
 
     return info, Tree, tax_index, tax_genome, parents, tree_df
 
@@ -73,11 +73,11 @@ def get_tax2path(tax_genome, info, parents):
     for tax in tax_index_list:   
         tax2root= find_tax2root(info, parents, tax)
         if tax2root==-1:
-            print("tax",tax)
+            logging.debug("tax not found in kraken tree: "+str(tax))
         else:    #elif 2 in tax2root: # selecting only bacteria
             tax2root_all.append(tax2root) # # [655353, 655352, 655351, 356, 28211, 1224, 3379134, 2, 131567, 1]
             tax2root_all_dic[tax]=tax2root
-    print("number of paths",len(tax2root_all))
+    logging.debug("number of paths"+str(len(tax2root_all)))
     tax2path = {} # a tax is present in which paths
     tax2depth = {} 
     for tax2root_path_idx, tax2root_path in enumerate(tax2root_all):
@@ -87,7 +87,7 @@ def get_tax2path(tax_genome, info, parents):
                 tax2path[tax].append(tax2root_path_idx) #tax2root_path[0]
             else:
                 tax2path[tax]=[tax2root_path_idx]
-    print(len(tax2path),len(tax2depth))
+    logging.debug("number of tax2path"+str(len(tax2path))+" "+str(len(tax2depth)))
 
     return tax2path, tax2depth
 
