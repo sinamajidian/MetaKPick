@@ -4,10 +4,13 @@ import numpy as np
 from collections import Counter
 from sklearn.ensemble import RandomForestRegressor
 import logging
+from sklearn.tree import _tree
+from sklearn import tree
+import matplotlib.pyplot as plt
+
 
 import _utils_kraken
 import _utils_tree
-
 
 
 def get_features_read(tax_kmer_num_dic, num_nodes_tree,kmer_reported_tax,rlen):
@@ -21,21 +24,21 @@ def get_features_read(tax_kmer_num_dic, num_nodes_tree,kmer_reported_tax,rlen):
     mean_exc_tax = (np.sum(num_kmer_all)-kmer_reported_tax)/num_nodes_tree
     
     #feature_names=['mean_all','mean_nonzero','max','sum', 'mean_exc_tax']
-    features=[np.mean(num_kmer_all), np.mean(num_kmer_all)*len(num_kmer_all)/num_nodes_tree, np.max(num_kmer_all),np.sum(num_kmer_all),mean_exc_tax]
+    features_read=[np.mean(num_kmer_all), np.mean(num_kmer_all)*len(num_kmer_all)/num_nodes_tree, np.max(num_kmer_all),np.sum(num_kmer_all),mean_exc_tax]
     #feature_names+=['mean_all/rlen','mean_nonzero/rlen','max/rlen','sum/rlen', 'mean_exc_tax/rlen'] # /readlength
-    features+=[np.mean(num_kmer_norm)/rlen, np.mean(num_kmer_norm)*len(num_kmer_norm)/num_nodes_tree/rlen, 
+    features_read+=[np.mean(num_kmer_norm)/rlen, np.mean(num_kmer_norm)*len(num_kmer_norm)/num_nodes_tree/rlen, 
                 np.max(num_kmer_norm)/rlen,np.sum(num_kmer_norm)/rlen, mean_exc_tax/rlen]
-    return features
+    return features_read
 
 
 
-def get_features_depth(case, read_id, read_tax_depth, tax2depth,tax_krak,tax_kmer_dic):
-    if read_id in read_tax_depth:
+def get_features_depth(case, read_id, read_tax_depth, tax2depth,reported_tax,tax_kmer_dic):
+    if case in read_tax_depth and read_id in read_tax_depth[case]:
         txdepth_norm= read_tax_depth[case][read_id]
     else:
         txdepth_norm=0
     
-    depth_reported= tax2depth[tax_krak]
+    depth_reported= tax2depth[reported_tax]
     numkmer_consecutive=[]
     weighted_depth_numkmer =[]
     for tax, pos_num in tax_kmer_dic.items():
@@ -50,19 +53,19 @@ def get_features_depth(case, read_id, read_tax_depth, tax2depth,tax_krak,tax_kme
         numkmer_consecutive_mean= 0 
         weighted_depth_numkmer_mean=0
         
-    features=[depth_reported,numkmer_consecutive_mean,weighted_depth_numkmer_mean ]
+    features_depth=[depth_reported,numkmer_consecutive_mean,weighted_depth_numkmer_mean ]
     #feature_names+=['depth_reported_tax','Avg_kmer_consecutive', 'WAvg_kmer_consecutive']
-    return features
+    return features_depth
 
 
-def get_features_tax(tax_krak, info, parents, tax_kmer_num_dic, depth_reported, tax2depth, kmer_reported_tax, rlen):
+def get_features_tax(reported_tax, info, parents, tax_kmer_num_dic, depth_reported, tax2depth, kmer_reported_tax, rlen):
     kmer_reported_uppertax=0
     kmer_reported_belowtax=0
     kmer_other_reported_tax=0
     kmer_other_reported_uppertax=0 # towards root (smaller depth value)
     kmer_other_reported_belowtax=0 # towards leaves
     
-    tax_krak_2root= _utils_tree.find_tax2root(info, parents, tax_krak)
+    tax_krak_2root= _utils_tree.find_tax2root(info, parents, reported_tax)
     for tax_upper in tax_krak_2root[1:]: #excluding tax_krak towards the root  tax_krak_2root = [201174, 1783272, 2, 131567, 1] where tax_krak=201174 
         if tax_upper in tax_kmer_num_dic: 
             kmer_reported_uppertax +=tax_kmer_num_dic[tax_upper]
@@ -71,7 +74,7 @@ def get_features_tax(tax_krak, info, parents, tax_kmer_num_dic, depth_reported, 
     for taxi in tax_kmer_num_dic:
         # to get the below for the reported 
         tax2root_t= _utils_tree.find_tax2root(info, parents, taxi)
-        if tax2root_t!=-1 and tax_krak in tax2root_t: # tax_krak is lca of taxi
+        if tax2root_t!=-1 and reported_tax in tax2root_t: # tax_krak is lca of taxi
             kmer_reported_belowtax += tax_kmer_num_dic[taxi]   
             below_tax_all_perread.append(taxi)
     
@@ -86,17 +89,17 @@ def get_features_tax(tax_krak, info, parents, tax_kmer_num_dic, depth_reported, 
         else:  # depth_reported > taxi_depth: towards root (shallower)
             kmer_other_reported_uppertax += tax_kmer_num_dic[taxi]
     
-    features =[kmer_reported_tax, kmer_reported_uppertax,kmer_reported_belowtax,
+    features_tax =[kmer_reported_tax, kmer_reported_uppertax,kmer_reported_belowtax,
         kmer_reported_tax/rlen, kmer_reported_uppertax/rlen,kmer_reported_belowtax/rlen,
         kmer_other_reported_tax, kmer_other_reported_uppertax,kmer_other_reported_belowtax,
         kmer_other_reported_tax/rlen, kmer_other_reported_uppertax/rlen,kmer_other_reported_belowtax/rlen]
     
     #feature_names+=['kmer_reported_tax','kmer_tax_above','kmer_tax_below','kmer_tax/rlen','kmer_tax_above/rlen','kmer_tax_below/rlen','kmer_othertax','kmer_othertax_above','kmer_othertax_below','kmer_othertax/rlen','kmer_othertax_above/rlen','kmer_othertax_below/rlen',]
-    return features, below_tax_all_perread
+    return features_tax, below_tax_all_perread
 
-def get_features_half_read(tax_krak, tax_kmer_dic, rlen, below_tax_all_perread):
-    tax_krak_touse=tax_krak
-    if tax_krak not in tax_kmer_dic: # when lca is reprorted, use onf its lower ones. 
+def get_features_half_read(reported_tax, tax_kmer_dic, rlen, below_tax_all_perread):
+    tax_krak_touse=reported_tax
+    if reported_tax not in tax_kmer_dic: # when lca is reprorted, use onf its lower ones. 
         tax_krak_touse= below_tax_all_perread[0]
     segment_num=2 # 3
     segment_len=int(rlen/segment_num)
@@ -125,39 +128,41 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, cases, read_
     
     num_nodes_tree = len(tax2path)  # 52229
     
-    dic_matrix2={}
+    features_cases={}
     for case in cases[::-1]: 
         logging.debug("working on case: "+case)
         kmer_size= int(case[1:])
         X3=[]
-        for read_idx,read_id in enumerate(read_names_list):
+        for read_idx,read_name in enumerate(read_names_list):
             if read_idx%10000==0:
                 logging.debug("Working on read idx: "+str(read_idx)+"  out of "+str(len(read_names_list)))
-            if read_id not in kraken_kmers_cases[case]:
+            if read_name not in kraken_kmers_cases[case]:
                 features=np.zeros(len(feature_names))
                 X3.append(features)
                 continue 
 
-            tax_krak, rlen, tax_kmer_dic, tax_kmer_num_dic = kraken_kmers_cases[case][read_id]  # read length
-            kmer_reported_tax = tax_kmer_num_dic.get(tax_krak, 0)  # kraken tax may be LCA of others
+            reported_tax, rlen, tax_kmer_dic, tax_kmer_num_dic = kraken_kmers_cases[case][read_name]  # read length
+            kmer_reported_tax = tax_kmer_num_dic.get(reported_tax, 0)    # kraken tax may be LCA of others
 
             features_read = get_features_read(tax_kmer_num_dic, num_nodes_tree, kmer_reported_tax, rlen)
-            features_depth= get_features_depth(case, read_id, read_tax_depth, tax2depth,tax_krak,tax_kmer_dic)
-            depth_reported = tax2depth[tax_krak]
-            features_tax, below_tax_all_perread = get_features_tax(tax_krak, info, parents, tax_kmer_num_dic, depth_reported, tax2depth, kmer_reported_tax, rlen)
+            features_depth= get_features_depth(case, read_name, read_tax_depth, tax2depth,reported_tax,tax_kmer_dic)
+            depth_reported = tax2depth[reported_tax]
+            features_tax, below_tax_all_perread = get_features_tax(reported_tax, info, parents, tax_kmer_num_dic, depth_reported, tax2depth, kmer_reported_tax, rlen)
 
-            feature_half_read = get_features_half_read(tax_krak, tax_kmer_dic, rlen, below_tax_all_perread)
+            feature_half_read = get_features_half_read(reported_tax, tax_kmer_dic, rlen, below_tax_all_perread)
             features=features_read + features_depth+ features_tax+ feature_half_read 
+            #print(sum(features))
 
             X3.append(features)
+            #print(sum(sum(X3)))
         X3=np.array(X3)
-        dic_matrix2[case]=X3    
+        features_cases[case]=X3    
 
-    logging.debug("number of kmer sizes"+str(len(dic_matrix2))+" number of reads"+str(len(dic_matrix2[case]))+" number of features"+str(len(dic_matrix2[case][0])))
-    return dic_matrix2
+    logging.debug("number of kmer sizes"+str(len(features_cases))+" number of reads"+str(len(features_cases[case]))+" number of features"+str(len(features_cases[case][0])))
+    return features_cases, feature_names
 
 
-def train_RF_model(X_input,Y_input,n_estimators=1000, max_features=float(0.8), max_leaf_nodes=50, random_state=14, n_jobs=1):
+def train_RF_model(X_input,Y_input, n_estimators=1000, max_features=float(0.8), max_leaf_nodes=50, random_state=14, n_jobs=1):
     regr = RandomForestRegressor(n_estimators=n_estimators,  
                                     max_features=max_features, #1.0 all 
                                     max_leaf_nodes=max_leaf_nodes,
@@ -167,7 +172,7 @@ def train_RF_model(X_input,Y_input,n_estimators=1000, max_features=float(0.8), m
 
 
 
-def train_RF_model_all(cases, features, tp_binary_reads_cases,read_names_list,n_estimators, max_features, max_leaf_nodes, random_state, n_jobs=1):
+def train_RF_model_all(cases, features_cases, tp_binary_reads_cases,read_names_list,n_estimators, max_features, max_leaf_nodes, random_state, n_jobs=1):
 
     num_reads=len(read_names_list)
     read_k_prob={}
@@ -175,18 +180,20 @@ def train_RF_model_all(cases, features, tp_binary_reads_cases,read_names_list,n_
         read_k_prob[read_name]=np.zeros(len(cases))    
     regr_dic = {}
     for case_idx, case in enumerate(cases):
-        X_input = features[case]
+        X_input = features_cases[case]
         Y_input = tp_binary_reads_cases[case]
 
         regr_dic[case] = train_RF_model(X_input, Y_input, n_estimators, max_features, max_leaf_nodes, random_state, n_jobs)
 
-        logging.debug("X_input.shape"+str(X_input.shape)+" len(Y_input)"+str(len(Y_input)))
+        logging.debug("X_input.shape "+str(X_input.shape)+" len(Y_input) "+str(len(Y_input)))
 
         y_pred = regr_dic[case].predict(X_input)
         y_pred_binary = np.round(y_pred)  # round(0.55)=1
         logging.debug("regr_dic[case]"+str(regr_dic[case]))
-        logging.debug("sum([1 for i in range(len(y_pred)) if y_pred_binary[i] == Y_input[i]]) / len(Y_input)"+str(sum([1 for i in range(len(y_pred)) if y_pred_binary[i] == Y_input[i]]) / len(Y_input)))
+        accuracy=sum([1 for i in range(len(y_pred)) if y_pred_binary[i] == Y_input[i]]) / len(Y_input)
+        logging.debug(" Accuracy of regression model for case "+case+" is "+str(accuracy))
         # sklearn.metrics.confusion_matrix(y_train, y_traing_pred)
+        #logging.debug("Confusion matrix for case "+case+" is "+str(confusion_matrix(Y_input, y_pred_binary)))
 
     for read_name_idx,read_name in enumerate(read_names_list):        
         read_k_prob[read_name][case_idx]= y_pred_binary[read_name_idx]
@@ -199,7 +206,7 @@ def train_RF_model_all(cases, features, tp_binary_reads_cases,read_names_list,n_
 def get_best_tax(read_k_prob,cases,read_names_list,merged,thr_minprob=0.5):
     best_k_dic={}
     for read_name_idx, read_name in enumerate(read_names_list):
-        best_k= cases[np.argmax(read_k_prob[read_name])]
+        
         max_val = np.max(read_k_prob[read_name])
 
         if max_val >thr_minprob:
@@ -208,7 +215,7 @@ def get_best_tax(read_k_prob,cases,read_names_list,merged,thr_minprob=0.5):
             best_k=-1
 
         best_k_dic[read_name]=best_k                
-    logging.debug("best k"+str(Counter(best_k_dic.values())))
+    logging.debug("** best k"+str(Counter(best_k_dic.values())))
     estimated_tax_dict={}
     for index, row in merged.iterrows():
         read_name   =row['read_name']   
@@ -229,14 +236,88 @@ def get_tp_binary_reads_cases(cases, read_names_list, tp_cases_dic):
     #case='k25'
     for case in cases:
         tp_binary_reads=[]    
-        for read_id in read_names_list:
-            if read_id in tp_cases_dic[case]['TP'] :
+        for read_name in read_names_list:
+            if read_name in tp_cases_dic[case]['TP'] :
                 tp_binary_reads.append(1) 
             else:
                 tp_binary_reads.append(0)
         tp_binary_reads_cases[case] = tp_binary_reads
         
-    logging.debug("len(tp_binary_reads_cases)"+str(len(tp_binary_reads_cases))+" len(tp_binary_reads_cases[case])"+str(len(tp_binary_reads_cases[case]))+" len(read_names_list)"+str(len(read_names_list))+" sum(tp_binary_reads_cases[case])"+str(sum(tp_binary_reads_cases[case])))
+    logging.debug("len(tp_binary_reads_cases) "+str(len(tp_binary_reads_cases))+" len(tp_binary_reads_cases[case]) "+str(len(tp_binary_reads_cases[case]))+" len(read_names_list) "+str(len(read_names_list))+" sum(tp_binary_reads_cases[case]) "+str(sum(tp_binary_reads_cases[case])))
     for case in cases:
         logging.debug("case"+str(case)+" Counter(tp_binary_reads_cases[case])"+str(Counter(tp_binary_reads_cases[case])))
     return tp_binary_reads_cases
+
+
+
+
+def write_estimated_tax(estimated_tax_dict,output_file_name="estimated_tax.csv"):
+    output_file =open(output_file_name,"w")
+
+    for read_name, estimated_tax in estimated_tax_dict.items():
+        output_file.write(read_name+","+str(estimated_tax)+"\n")
+    output_file.close()
+
+    return output_file_name
+
+def read_estimated_tax(output_file_name="estimated_tax.csv"):
+    estimated_tax_dict = {}
+    with open(output_file_name, "r") as file:
+        for line in file:
+            read_name, estimated_tax = line.strip().split(",")
+            estimated_tax_dict[read_name] = int(estimated_tax)
+    return estimated_tax_dict
+
+
+def decision_tree_to_code(tree, feature_names):
+
+    tree_ = tree.tree_
+    feature_name = [
+        feature_names[i] if i != _tree.TREE_UNDEFINED else "undefined!"
+        for i in tree_.feature
+    ]
+    code_txt ="def tree({}):".format(", ".join(feature_names))+"\n"
+    print(code_txt)
+    def recurse_func(node, depth):
+        #code_txt=""
+        indent = "  " * depth
+        if tree_.feature[node] != _tree.TREE_UNDEFINED:
+            name = feature_name[node]
+            threshold = tree_.threshold[node]
+            code_txt = "{}if {} <= {}:".format(indent, name, threshold)+"\n"
+            print(code_txt)
+            recurse_func(tree_.children_left[node], depth + 1)
+            code_txt = "{}else:  # if {} > {}".format(indent, name, threshold)+"\n"
+            print(code_txt)
+            recurse_func(tree_.children_right[node], depth + 1)
+        else:
+            code_txt = "{}return {}".format(indent, tree_.value[node])+"\n"
+            print(code_txt)
+        #print(code_txt)
+        return 1
+    
+    recurse_func(0, 1)
+
+    # with open(workingdir+"../results/tree_code.txt", "w") as file:
+    #     for line in code_txt.split("\n"):
+    #         file.write(line+"\n")
+    # logging.debug("Tree code saved in "+workingdir+"../results/tree_code.txt")
+    return 1
+
+
+
+
+def plot_tree(regr_dic, feature_names, workingdir,num_trees=1):
+        
+    for case,regr in regr_dic.items():
+        for tree_idx in range(num_trees):
+            individual_tree = regr.estimators_[tree_idx]  # Get the first tree (you can choose any index)
+            decision_tree_to_code(individual_tree,feature_names)
+            plt.figure(figsize=(30, 30))
+            tree.plot_tree(individual_tree, filled=True ,rounded=True,fontsize=14, feature_names=feature_names) # , class_names=class_names,
+            plt.savefig(workingdir+"../results/tree_"+case+"_"+str(tree_idx)+".png",dpi=100)
+
+    return 1
+
+
+

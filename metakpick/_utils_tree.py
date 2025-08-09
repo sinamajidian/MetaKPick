@@ -47,7 +47,7 @@ def get_tax_info(tree_file,tax_genome_file):
     tax_genome = set()
     for line in tax_genome_f:
         tax_genome.add(int(line.strip()))
-    logging.debug('Number of genomes/strain ',len(tax_genome),"in kraken index")
+    logging.debug('Number of genomes/strain '+str(len(tax_genome))+" in kraken index")
 
     tax_index_=[]
     tax_notfound=[]
