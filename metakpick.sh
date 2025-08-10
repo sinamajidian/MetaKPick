@@ -26,7 +26,7 @@ echo "kraken classification is done"
 
 # step 3 
 echo "step 3 running metakpick"
-python metakpick.py --mode classify --read $read --threads $threads
+python metakpick.py --mode classify --read $read --threads $threads --workingdir $workingdir
 
 
 

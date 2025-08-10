@@ -1,13 +1,15 @@
 # MetaKPick
 
 
+# Work In Progress
+
 
 A tool for metagenomic classifciation
 
 
 ## installtion
 
-WIP
+
 
 ```
 conda create -n metak python=3.10
@@ -17,8 +19,7 @@ conda install bioconda::kraken
 conda install anaconda::scikit-learn
 conda install numpy 
 
-python install setup.py
- 
+
 ```
 
 ## usage
@@ -27,20 +28,3 @@ python install setup.py
 
 
 ### Classification
-
-using trained RF model
-
-
-```
-bash metakpick.sh classify 
-```
-
-
-
-### train the model
-
-```
-metakpick  --mode train 
-```
-
-

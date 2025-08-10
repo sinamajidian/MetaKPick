@@ -137,7 +137,7 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_dep
             if read_idx%20000==0:
                 logging.debug("Working on read idx: "+str(read_idx)+"  out of "+str(len(read_names_list)))
 
-            reported_tax, rlen, tax_kmer_dic, tax_kmer_num_dic = kraken_kmers_cases[case][read_name]  # read length
+            reported_tax, rlen, tax_kmer_dic, tax_kmer_num_dic = kraken_kmers_cases[case].get(read_name, (0,0,{},{}))  # read length
             #if read_name not in kraken_kmers_cases[case]:
             if reported_tax==0:
                 features=np.zeros(len(feature_names))

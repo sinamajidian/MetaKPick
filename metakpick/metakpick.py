@@ -37,7 +37,7 @@ def main():
     #mode_group.add_argument('--train', action='store_true', help='Run the training of the model')
     #mode_group.add_argument('--classify', action='store_true', help='Run the classification of the model')
     parser.add_argument('--mode', type=str, help='train or classify')
-    # parser.add_argument('--output', type=str, help='Output file')
+    parser.add_argument('--workingdir', type=str, help='Working directory')
     # parser.add_argument('--model', type=str, help='Model file')
     # parser.add_argument('--threads', type=int, help='Number of threads')
 
@@ -46,7 +46,7 @@ def main():
     
     
     logging.info("Starting the program and loading the tax info")
-    workingdir="/vast/blangme2/smajidi5/metagenomics/metakpick_project/"
+    #workingdir="/vast/blangme2/smajidi5/metagenomics/metakpick_project/"
     in_folder= workingdir+"files/"
     tree_file=in_folder+"nodes.dmp"
     tax_genome_file= in_folder + "seqid2taxid.map_tax_uniq"
@@ -136,7 +136,7 @@ def main():
         logging.info("Model loaded"+str(loaded_regression_dic))
         
         #classify_folder=workingdir+"../changek/simulatation/classification/max15/"
-        classify_folder= "/vast/blangme2/smajidi5/metagenomics/changek/kraken1/classification/cami_soil/long_0/small/"
+        classify_folder=workingdir+"classification/" # "/vast/blangme2/smajidi5/metagenomics/changek/kraken1/classification/cami_soil/long_0/small/"
         cases_classify =[i.split("_")[0] for i in os.listdir(classify_folder) if i.endswith('_out')]
         cases_model= list(loaded_regression_dic.keys())
         cases_classify_intersect=set(cases_classify).intersection(set(cases_model))

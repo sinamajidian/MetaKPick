@@ -1,3 +1,4 @@
+
 from distutils.core import setup
 setup(
   name = 'metakpick',
@@ -12,10 +13,8 @@ setup(
   keywords = ['metagenomics', 'classification', 'machine learning', 'random forest'],
   install_requires=[
           'numpy',
-          'pysam',
           'pandas',
           'matplotlib',
-          'seaborn',
           'scikit-learn',
       ],
   include_package_data=True,
