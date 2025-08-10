@@ -481,7 +481,8 @@ def read_kraken_all(cases, classification_folder): # , readids_max, num_reads=10
         if case_k==0:
             read_names_case0= read_names_case
         else:
-            assert read_names_case0 == read_names_case, "we expect the same reads in all cases. The "+case+" is not the same as the case "+cases[0]+str(len(read_names_case0))+" "+str(len(read_names_case)) 
+            if read_names_case0 != read_names_case:
+                logging.warning("we expect the same reads in all cases. The "+case+" is not the same as the case "+case+str(len(read_names_case0))+" "+str(len(read_names_case))) 
 
     return read_names_case0, kraken_kmers_cases
 

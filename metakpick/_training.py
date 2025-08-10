@@ -192,7 +192,7 @@ def train_RF_model_all(features_cases, tp_binary_reads_cases,read_names_list,n_e
         logging.debug("Accuracy for case "+str(case)+" is "+str(accuracy))
 
 
-    return regr_dic, 
+    return regr_dic
 
 
 
