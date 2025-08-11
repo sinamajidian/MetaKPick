@@ -4,14 +4,14 @@ from collections import Counter
 
 
 
-def apply_RF_model(features_cases,read_names_list,loaded_regression_dic):
-    cases=list(loaded_regression_dic.keys())
+def apply_RF_model(cases_classify_intersect,features_cases,read_names_list,loaded_regression_dic):
+    #cases=list(loaded_regression_dic.keys())
     read_k_prob={}
     for read_name in read_names_list:
-        read_k_prob[read_name]=np.zeros(len(cases))    
+        read_k_prob[read_name]=np.zeros(len(cases_classify_intersect))    
     
 
-    for case_idx, case in enumerate(cases):
+    for case_idx, case in enumerate(cases_classify_intersect):
         X_input = features_cases[case]
         
         y_pred = loaded_regression_dic[case].predict(X_input)
