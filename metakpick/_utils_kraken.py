@@ -215,7 +215,8 @@ def calculate_tp_fp(mode,input_dic,dic_tax_truth,info,tree_df,parents,tax_level,
                 read_tpfp_dic['FP-level-index'].add(read_name) # tool labeled at the tax level (or lower) and wrong 
             else:
                 read_tpfp_dic['FP-level-notindex'].add(read_name) # tool labeled at the tax level (or lower) and wrong             
-    logging.debug("to check tax_predicted==-1 or tax_true_level < 1: "+str(len(tax_predicted_list_tocheck))+" a few of them are: "+str(tax_predicted_list_tocheck[:20]))        
+    if tax_predicted_list_tocheck:
+        logging.debug("to check tax_predicted==-1 or tax_true_level < 1: "+str(len(tax_predicted_list_tocheck))+" a few of them are: "+str(tax_predicted_list_tocheck[:20]))        
     return read_tpfp_dic
 
 # def get_tax_depth(merged, cases, info,parents):

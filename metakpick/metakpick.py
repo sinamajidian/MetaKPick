@@ -81,8 +81,11 @@ def main():
 
         #classification_folder=folder_input 
         cases=[i.split("_")[0] for i in os.listdir(kraken_output_folder) if i.endswith('_out')] #["k"+str(k) for k in range(15,32)]
+        logging.info("List of kraken indexes  aka cases: "+str(cases))
 
-        cases=cases[2:]#[4:5]+cases[-1:]
+
+        
+        #cases=cases[2:]#[4:5]+cases[-1:]
         #logging.info("Reading the kraken classification")
         #merged  = _utils_kraken.read_kraken_classification(cases, truth_file, classification_folder )
         # # todo: get the read set first, then 
@@ -136,7 +139,7 @@ def main():
         model_file=model_files[-1]
         #model_time_stamp=model_file.split("_")[1] # model_file=workingdir+"Random_Forest_regression_models"+model_time_stamp+".pkl" 
         logging.info("Loading the model: "+model_file+" in the folder: "+model_folder)
-        loaded_regression_dic= pickle.load(open(model_folder+model_file, "rb"))[0] # this is temprorary due to a mistke  remove 
+        loaded_regression_dic= pickle.load(open(model_folder+model_file, "rb")) # [0] # this is temprorary due to a mistke  remove 
 
 
 
@@ -198,7 +201,7 @@ def main():
                     kraken_reportedtax_cases[case][read_name]=reported_tax
 
             logging.info("Calculating the tp fp")
-            for case in cases_classify_intersect+["RF"]:
+            for case in list(cases_classify_intersect)+["RF"]:
                 logging.info("Calculating the tp fp for case: "+case)
                 read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case],dic_tax_truth,info,tree_df,parents,'species',tax_index)
                 logging.info("Number of reads in the TP: "+str(len(read_tpfp_dic['TP'])))
