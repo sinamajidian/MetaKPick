@@ -192,9 +192,11 @@ def main():
             kraken_reportedtax_cases=dict()
             kraken_reportedtax_cases['RF']=estimated_tax_dict
             for case in cases_classify_intersect:
+                kraken_reportedtax_cases[case]={}
                 for read_name, kraken_info in kraken_kmers_cases[case].items():
                     reported_tax = kraken_info[0]
                     kraken_reportedtax_cases[case][read_name]=reported_tax
+
             logging.info("Calculating the tp fp")
             for case in cases_classify_intersect+["RF"]:
                 logging.info("Calculating the tp fp for case: "+case)

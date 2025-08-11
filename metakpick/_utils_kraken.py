@@ -177,10 +177,11 @@ def calculate_tp_fp(mode,input_dic,dic_tax_truth,info,tree_df,parents,tax_level,
     
         if tax_predicted==0 :
             read_tpfp_dic["total_unclassified"].add(read_name)
+        tax_predicted_list_tocheck=[]
         if tax_predicted==-1 or tax_true_level < 1:
-            logging.debug("to check "+str(tax_predicted)+" "+str(tax_true)+" "+str(tax_true_level))
+            tax_predicted_list_tocheck.append(tax_predicted)
+        
 
-            #to check  9400 632 0 -1
     
         if tax_true_level ==1 or  tax_true_level==-1 or (tax_predicted_level==-1 and tax_predicted!=0): # true is not at the level, is higher than the level     or true doest not exist in info
             #including 'inconsistent-tool'
@@ -214,7 +215,7 @@ def calculate_tp_fp(mode,input_dic,dic_tax_truth,info,tree_df,parents,tax_level,
                 read_tpfp_dic['FP-level-index'].add(read_name) # tool labeled at the tax level (or lower) and wrong 
             else:
                 read_tpfp_dic['FP-level-notindex'].add(read_name) # tool labeled at the tax level (or lower) and wrong             
-               
+    logging.debug("to check tax_predicted==-1 or tax_true_level < 1: "+str(len(tax_predicted_list_tocheck))+" a few of them are: "+str(tax_predicted_list_tocheck[:20]))        
     return read_tpfp_dic
 
 # def get_tax_depth(merged, cases, info,parents):
