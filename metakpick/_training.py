@@ -124,18 +124,19 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_dep
                 'depth_reported_tax', 'Avg_kmer_consecutive', 'WAvg_kmer_consecutive', 'kmer_reported_tax', 'kmer_tax_above', 'kmer_tax_below', 
                 'kmer_tax/rlen', 'kmer_tax_above/rlen', 'kmer_tax_below/rlen', 'kmer_othertax', 'kmer_othertax_above', 'kmer_othertax_below', 
                 'kmer_othertax/rlen', 'kmer_othertax_above/rlen', 'kmer_othertax_below/rlen', 'diff#kmers_halfRead']
-
+    logging.debug("feature_names are : "+str(feature_names))
     
     num_nodes_tree = len(tax2path)  # 52229
     cases=list(kraken_kmers_cases.keys())
     features_cases={}
+    not_found_in_tax2depth=[]
     for case in cases: 
-        logging.debug("working on case: "+case)
+        logging.debug("Extracting features for case: "+case)
         kmer_size= int(case[1:])
         X3=[]
         for read_idx,read_name in enumerate(read_names_list):
             if read_idx%20000==0:
-                logging.debug("Working on read idx: "+str(read_idx)+"  out of "+str(len(read_names_list)))
+                logging.debug("Extracting features for read idx: "+str(read_idx)+"  out of "+str(len(read_names_list)))
 
             reported_tax, rlen, tax_kmer_dic, tax_kmer_num_dic = kraken_kmers_cases[case].get(read_name, (0,0,{},{}))  # read length
             #if read_name not in kraken_kmers_cases[case]:
@@ -148,7 +149,11 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_dep
 
             features_read = get_features_read(tax_kmer_num_dic, num_nodes_tree, kmer_reported_tax, rlen)
             features_depth= get_features_depth(case, read_name, read_tax_depth, tax2depth,reported_tax,tax_kmer_dic)
-            depth_reported = tax2depth[reported_tax]
+            if reported_tax in tax2depth:
+                depth_reported = tax2depth[reported_tax]
+            else:
+                depth_reported = 0
+                not_found_in_tax2depth.append((read_name,case,reported_tax))
             features_tax, below_tax_all_perread = get_features_tax(reported_tax, info, parents, tax_kmer_num_dic, depth_reported, tax2depth, kmer_reported_tax, rlen)
 
             feature_half_read = get_features_half_read(reported_tax, tax_kmer_dic, rlen, below_tax_all_perread)
@@ -161,6 +166,7 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_dep
         features_cases[case]=X3    
 
     logging.debug("number of kmer sizes "+str(len(features_cases))+" number of reads "+str(len(features_cases[case]))+" number of features "+str(len(features_cases[case][0])))
+    logging.debug("number of reads not found in tax2depth "+str(len(not_found_in_tax2depth))+" a few examples: "+str(not_found_in_tax2depth[:10]))
     return features_cases, feature_names
 
 
@@ -185,7 +191,7 @@ def train_RF_model_all(features_cases, tp_binary_reads_cases,read_names_list,n_e
 
         regr_dic[case] = train_RF_model(X_input, Y_input, n_estimators, max_features, max_leaf_nodes, random_state, n_jobs)
 
-        logging.debug("X_input.shape "+str(X_input.shape)+" len(Y_input) "+str(len(Y_input)))
+        logging.debug("case: "+str(case)+" X_input.shape "+str(X_input.shape)+" len(Y_input) "+str(len(Y_input)))
         
         y_pred_prob=regr_dic[case].predict(X_input)
         accuracy= _classifier.calculate_accuracy(y_pred_prob,Y_input)
@@ -211,9 +217,9 @@ def get_tp_binary_reads_cases(cases, read_names_list, reads_tp_cases):
                 tp_binary_reads.append(0)
         tp_binary_reads_cases[case] = tp_binary_reads
         
-    logging.debug("len(tp_binary_reads_cases) "+str(len(tp_binary_reads_cases))+" len(tp_binary_reads_cases[case]) "+str(len(tp_binary_reads_cases[case]))+" len(read_names_list) "+str(len(read_names_list))+" sum(tp_binary_reads_cases[case]) "+str(sum(tp_binary_reads_cases[case])))
+    logging.debug("len(tp_binary_reads_cases): "+str(len(tp_binary_reads_cases))+", len(tp_binary_reads_cases[case]): "+str(len(tp_binary_reads_cases[case]))+", len(read_names_list): "+str(len(read_names_list))+", sum(tp_binary_reads_cases[case]): "+str(sum(tp_binary_reads_cases[case]))+" for case: "+case)
     for case in cases:
-        logging.debug("case"+str(case)+" Counter(tp_binary_reads_cases[case])"+str(Counter(tp_binary_reads_cases[case])))
+        logging.debug("case: "+str(case)+", Counter(tp_binary_reads_cases[case]): "+str(Counter(tp_binary_reads_cases[case])))
     return tp_binary_reads_cases
 
 
@@ -275,7 +281,7 @@ def decision_tree_to_code(tree, feature_names):
 
 
 
-def plot_tree(regr_dic, feature_names, workingdir,num_trees=1):
+def plot_tree(regr_dic, feature_names, model_folder,num_trees=1):
         
     for case,regr in regr_dic.items():
         for tree_idx in range(num_trees):
@@ -283,8 +289,8 @@ def plot_tree(regr_dic, feature_names, workingdir,num_trees=1):
             decision_tree_to_code(individual_tree,feature_names)
             plt.figure(figsize=(30, 30))
             tree.plot_tree(individual_tree, filled=True ,rounded=True,fontsize=14, feature_names=feature_names) # , class_names=class_names,
-            plt.savefig(workingdir+"../results/tree_"+case+"_"+str(tree_idx)+".png",dpi=100)
-
+            plt.savefig(model_folder+"/tree_"+case+"_"+str(tree_idx)+".png",dpi=200)
+            
     return 1
 
 
