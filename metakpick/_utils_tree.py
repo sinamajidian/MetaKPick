@@ -40,14 +40,14 @@ def get_tax_info(tree_file,tax_genome_file):
     children = tree_df[0]
     parents = tree_df[2]
     info, Tree = parse_tree_file(tree_df,children,parents)
-    logging.debug("Parsed the tree file. Size of info: "+str(   len(info))+"Size of Tree: "+str(len(Tree)))
+    logging.debug("Parsed the tree file. Size of info: "+str(   len(info))+", Size of Tree: "+str(len(Tree)))
 
 
     tax_genome_f = open(tax_genome_file,'r') # genomes in the kraken index  
     tax_genome = set()
     for line in tax_genome_f:
         tax_genome.add(int(line.strip()))
-    logging.debug('Number of genomes/strain '+str(len(tax_genome))+" in kraken index.")
+    logging.debug('Number of genomes/strains '+str(len(tax_genome))+" in kraken index.")
 
     tax_index_=[]
     tax_notfound=[]
@@ -58,7 +58,7 @@ def get_tax_info(tree_file,tax_genome_file):
         else:
             tax_notfound.append(tax_)
     tax_index =set(tax_index_) # all the tax in genomes of kraken, plus all up to root 
-    logging.debug('Number of tax ids'+str(len(tax_index))+" "+str(len(tax_index_))) # 
+    logging.debug('Number of unqiue tax ids:'+str(len(tax_index))+", set size after removing duplicates: "+str(len(tax_index_))) # 
     logging.debug("Genome tax not found in kraken tree "+str(tax_notfound))
 
     return info, Tree, tax_index, tax_genome, parents, tree_df
@@ -70,13 +70,15 @@ def get_tax2path(tax_genome, info, parents):
     tax2root_all_dic={} # paths endint at all levels 
     # paths endint at leaf level (no Vague positive )
     tax_index_list= list(tax_genome)  # tax_genome_specieslevel 
+    tax_notfound=[]
     for tax in tax_index_list:   
         tax2root= find_tax2root(info, parents, tax)
         if tax2root==-1:
-            logging.debug("tax not found in kraken tree: "+str(tax))
+            tax_notfound.append(tax)
         else:    #elif 2 in tax2root: # selecting only bacteria
             tax2root_all.append(tax2root) # # [655353, 655352, 655351, 356, 28211, 1224, 3379134, 2, 131567, 1]
             tax2root_all_dic[tax]=tax2root
+    logging.debug("tax not found in kraken tree: "+str(tax_notfound))
     logging.debug("number of paths "+str(len(tax2root_all)))
     tax2path = {} # a tax is present in which paths
     tax2depth = {} 

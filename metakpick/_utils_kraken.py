@@ -42,7 +42,8 @@ def calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_l
         tax_level='species'
         read_tpfp_dic_case= calculate_tp_fp("raw_kraken",kraken_kmers,dic_tax_truth,info,tree_df,parents,tax_level,tax_index)
         logging.debug("Number of reads in the case TP : "+str(len(read_tpfp_dic_case['TP'])))
-        logging.debug("Number of reads in the case not truth level : "+str(len(read_tpfp_dic_case['notruth'])))
+        if len(read_tpfp_dic_case['notruth']):
+            logging.debug("Number of reads in the case not truth level : "+str(len(read_tpfp_dic_case['notruth']))+" a few examples: "+str(list(read_tpfp_dic_case['notruth'])[:10]))
         tp_cases_dic[case]=read_tpfp_dic_case['TP']
 
     cases=list(kraken_kmers_cases.keys())
@@ -469,14 +470,14 @@ def read_kraken_file(kraken_file):
 
 
 def read_kraken_all(cases, classification_folder): # , readids_max, num_reads=10000
-    print("read kraken's k-mer  count per tax")
+    logging.info("Reading kraken's k-mer count per tax from: "+classification_folder)
     #folder="/vast/blangme2/smajidi5/metagenomics/changek/simulatation/classification/" # 
     #cases=['k19','k25','k31'] # ,'k21'
     kraken_kmers_cases={}
     for case in cases: 
-        print(case)
+        logging.info('Reading kraken file for case: '+case)
         kraken_kmers_cases[case]=  read_kraken_file(classification_folder+case+"_out")
-        logging.info(case+" "+str(len(kraken_kmers_cases[case])))
+        logging.info("Number of reads for case: "+case+" is: "+str(len(kraken_kmers_cases[case])))
     
     for case_k, case in  enumerate(cases): 
         read_names_case=set(kraken_kmers_cases[case].keys())

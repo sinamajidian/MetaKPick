@@ -52,7 +52,7 @@ def get_best_tax(read_k_prob,read_names_list,kraken_kmers_cases,thr_minprob=0.5)
             estimated_tax=0
         estimated_tax_dict[read_name ]=estimated_tax
 
-    logging.debug("** best k"+str(Counter(best_k_dic.values())))
+    logging.debug("** best k: "+str(Counter(best_k_dic.values())))
     
 
     return best_k_dic,estimated_tax_dict
