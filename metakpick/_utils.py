@@ -121,7 +121,7 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_dep
     feature_names = ['mean_all', 'mean_nonzero', 'max', 'sum', 'mean_exc_tax', 'mean_all/rlen', 'mean_nonzero/rlen', 'max/rlen', 'sum/rlen', 'mean_exc_tax/rlen', 
                 'depth_reported_tax', 'Avg_kmer_consecutive', 'WAvg_kmer_consecutive', 'kmer_reported_tax', 'kmer_tax_above', 'kmer_tax_below', 
                 'kmer_tax/rlen', 'kmer_tax_above/rlen', 'kmer_tax_below/rlen', 'kmer_othertax', 'kmer_othertax_above', 'kmer_othertax_below', 
-                'kmer_othertax/rlen', 'kmer_othertax_above/rlen', 'kmer_othertax_below/rlen', 'diff#kmers_halfRead']
+                'kmer_othertax/rlen', 'kmer_othertax_above/rlen', 'kmer_othertax_below/rlen', 'diff#kmers_halfRead','rlen']
     logging.debug("feature_names are : "+str(feature_names))
     
     num_nodes_tree = len(tax2path)  # 52229
@@ -156,7 +156,7 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_dep
             features_tax, below_tax_all_perread = get_features_tax(reported_tax, info, parents, tax_kmer_num_dic, depth_reported, tax2depth, kmer_reported_tax, rlen)
 
             feature_half_read = get_features_half_read(reported_tax, tax_kmer_dic, rlen, below_tax_all_perread)
-            features=features_read + features_depth+ features_tax+ feature_half_read 
+            features=features_read + features_depth+ features_tax+ feature_half_read + [rlen]
             #print(sum(features))
 
             X3.append(features)
