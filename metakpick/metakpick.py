@@ -44,11 +44,13 @@ def main():
     parser.add_argument('--kraken_output_folder', type=str, help='Kraken output folder')
     parser.add_argument('--truth_file', type=str, help='Truth file')
     parser.add_argument('--model_folder', type=str, help='Model folder')
+    parser.add_argument('--model_file', type=str, help='Model file')
     parser.add_argument('--output_file_name', type=str, help='Output file name')
     parser.add_argument('--tree_file', type=str, help='Tree file')
     parser.add_argument('--tax_genome_file', type=str, help='Tax genome file')
     parser.add_argument('--kmer_list', type=str, help='K-mer list file comma separated') # 19,21,23 
     parser.add_argument('--plot_tree', action='store_true', help='Plot the tree')
+    
     #parser.add_argument('--help', action='store_true', help='show this help message and exit')
     #parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     args = parser.parse_args()
@@ -66,6 +68,7 @@ def main():
     tree_file=args.tree_file
     tax_genome_file=args.tax_genome_file
     plot_tree=args.plot_tree
+    model_file=args.model_file
     kmer_list=[] if args.kmer_list is None else [int(kmer) for kmer in args.kmer_list.split(',')]
     logging.info("Input kmer list: "+str(kmer_list))
 
@@ -77,6 +80,7 @@ def main():
 
     info, Tree, tax_index, tax_genome, parents, tree_df = _utils_tree.get_tax_info(tree_file,tax_genome_file)    
     tax2path, tax2depth = _utils_tree.get_tax2path(tax_genome, info, parents)
+    tax_level='species'  # training level 
 
     if mode=="train": 
         #folder_input =workingdir+"../changek/simulatation/classification/max15/"
@@ -114,7 +118,7 @@ def main():
         read_names_list, kraken_kmers_cases = _utils_kraken.read_kraken_all(cases, kraken_output_folder)
         # logging.info("Getting the tax depth")
         read_tax_depth = _utils_kraken.get_tax_depth(kraken_kmers_cases, info,parents)
-        tax_level='species'
+        
         reads_tp_cases = _utils_kraken.calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_level,tax_index,read_names_list)
         
         logging.info("Getting the tp binary reads cases")
@@ -127,10 +131,18 @@ def main():
         logging.info("Saving the model")
         logging.info(regr_dic)
 
-        now = datetime.now()
-        time_stamp_model = now.strftime("%Y%m%d_%H%M%S")
-        logging.info("Saving the model in: "+model_folder+"/Random_Forest_regression_models"+time_stamp_model+".pkl")
-        pickle.dump(regr_dic, open(model_folder+"/Random_Forest_regression_models"+time_stamp_model+".pkl", "wb"))
+        if model_file is None:
+            now = datetime.now()
+            time_stamp_model = now.strftime("%Y%m%d_%H%M%S")
+            model_file = model_folder+"/Random_Forest_regression_models"+time_stamp_model+".pkl"
+        else:
+            if "/" in model_file:
+                model_file = model_file
+            else:
+                model_file = model_folder+"/"+model_file
+
+        logging.info("Saving the model in: "+model_file)
+        pickle.dump(regr_dic, open(model_file, "wb"))
         if plot_tree:
             _training.plot_tree(regr_dic, feature_names, model_folder,num_trees=1)
             logging.info("A few example decision trees plotted and saved in: "+model_folder)
@@ -144,12 +156,27 @@ def main():
         #logging.info("Classifying the reads")
         #logging.info("Loading the model")
         #model_folder=workingdir+"results/"
-        model_files =[ model_file for  model_file in os.listdir(model_folder) if model_file.endswith(".pkl") and model_file.startswith("Random_Forest_regression_models")]
-        model_files.sort()
-        model_file=model_files[-1]
+        if model_file is None:
+            model_files =[ model_file for  model_file in os.listdir(model_folder) if model_file.endswith(".pkl") and model_file.startswith("Random_Forest_regression_models")]
+            model_files.sort()
+            model_file=model_files[-1]
+        
+
+
+        if model_file is None:
+            now = datetime.now()
+            time_stamp_model = now.strftime("%Y%m%d_%H%M%S")
+            model_file = model_folder+"/Random_Forest_regression_models"+time_stamp_model+".pkl"
+        else:
+            if "/" in model_file:
+                model_file = model_file
+            else:
+                model_file = model_folder+"/"+model_file
+
+
         #model_time_stamp=model_file.split("_")[1] # model_file=workingdir+"Random_Forest_regression_models"+model_time_stamp+".pkl" 
-        logging.info("Loading the model: "+model_file+" in the folder: "+model_folder)
-        loaded_regression_dic= pickle.load(open(model_folder+model_file, "rb")) # [0] # this is temprorary due to a mistke  remove 
+        logging.info("Loading the model: "+model_file)
+        loaded_regression_dic= pickle.load(open(model_file, "rb")) # [0] # this is temprorary due to a mistke  remove 
 
 
 
@@ -163,6 +190,10 @@ def main():
         cases_classify =[i.split("_")[0] for i in os.listdir(kraken_output_folder) if i.endswith('_out')]
         cases_model= list(loaded_regression_dic.keys())
         cases_classify_intersect=sorted(list(set(cases_classify).intersection(set(cases_model))))
+        if kmer_list:   
+            cases_classify_intersect=sorted(list(set(cases_classify_intersect).intersection(set(kmer_list))))
+        logging.info("Cases in the input for classification intersected with the kmer list: "+str(cases_classify_intersect))    
+            
         logging.info("Cases in the input for classification: "+str(cases_classify))
         logging.info("Cases in the model: "+str(cases_model))
         logging.warning("Working on the intersection of cases in the input for classification and in the model: "+str(cases_classify_intersect))
@@ -197,7 +228,8 @@ def main():
             logging.info("Reading the truth file: "+truth_file)
             dic_tax_truth = _utils_kraken.read_truth_file(truth_file)
             logging.info("Number of reads in the truth file: "+str(len(dic_tax_truth)))
-
+            
+            reads_tp_cases = _utils_kraken.calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_level,tax_index,read_names_list)
 
             logging.info("cleaning reported tax for all kmer sizes")
             kraken_reportedtax_cases=dict()
@@ -208,25 +240,44 @@ def main():
                     reported_tax = kraken_info[0]
                     kraken_reportedtax_cases[case][read_name]=reported_tax
 
-            logging.info("Calculating the tp fp")
-            print("case\tF1\tprecision\trecall\tTP\tFP\tVP")
-            for case in list(cases_classify_intersect)+["RF"]:
-                logging.info("Calculating the tp fp for case: "+case)
-                read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case],dic_tax_truth,info,tree_df,parents,'species',tax_index)
-                logging.info("Number of reads in the TP: "+str(len(read_tpfp_dic['TP'])))
+            
+            for read_name in read_names_list:
+                true_k_set= reads_tp_cases[read_name]
+                found_true_tax= 0
+                if true_k_set:
+                    case_true_k = 'k'+str(list(true_k_set)[0])
+                    found_true_tax = kraken_reportedtax_cases[case_true_k][read_name]
+                kraken_reportedtax_cases[ "Oracle"][read_name]  = found_true_tax           	     
 
-                FP=len(read_tpfp_dic['FP-level-index'])+len(read_tpfp_dic['FP-higher-index'])+len(read_tpfp_dic['FP-level-notindex'])+len(read_tpfp_dic['FP-higher-notindex'])
-                recall=len(read_tpfp_dic['TP'])/(len(read_tpfp_dic['TP']) + len(read_tpfp_dic['VP']) + len(read_tpfp_dic['FN']) +FP )
-                if len(read_tpfp_dic['TP'])!=0:
-                    precision=len(read_tpfp_dic['TP'])/(len(read_tpfp_dic['TP']) + FP)
-                    F1= 2* precision* recall/(precision+recall)
-                else:
-                    precision=0
-                    F1=0
-                
-                print(case,'\t',round(F1,4), round(precision,4),round(recall,4),len(read_tpfp_dic['TP']),FP,len(read_tpfp_dic['VP']))
-                        
+                case_random = cases_classify_intersect[random.randint(0, len(cases_classify_intersect)-1)]
+                kraken_reportedtax_cases["Random"][read_name]  = kraken_reportedtax_cases[case_random][read_name]      	     
+
+
+
+            logging.info("Calculating the tp fp")
+
+            print("case\tF1\tprecision\trecall\tTP\tFP\tVP")
+            for level in ['species','genus','family','order','class']:
+                print("level: "+level)
+                for case in list(cases_classify_intersect)+["RF"+"Random","Oracle"]:
+                    logging.info("Calculating the tp fp for case: "+case)
+                    read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case],dic_tax_truth,info,tree_df,parents,level,tax_index)
+                    logging.info("Number of reads in the TP: "+str(len(read_tpfp_dic['TP'])))
+
+                    FP=len(read_tpfp_dic['FP-level-index'])+len(read_tpfp_dic['FP-higher-index'])+len(read_tpfp_dic['FP-level-notindex'])+len(read_tpfp_dic['FP-higher-notindex'])
+                    recall=len(read_tpfp_dic['TP'])/(len(read_tpfp_dic['TP']) + len(read_tpfp_dic['VP']) + len(read_tpfp_dic['FN']) +FP )
+                    if len(read_tpfp_dic['TP'])!=0:
+                        precision=len(read_tpfp_dic['TP'])/(len(read_tpfp_dic['TP']) + FP)
+                        F1= 2* precision* recall/(precision+recall)
+                    else:
+                        precision=0
+                        F1=0
+                    
+                    print(case,'\t',round(F1,4), round(precision,4),round(recall,4),len(read_tpfp_dic['TP']),FP,len(read_tpfp_dic['VP']))
+                            
             
 
 if __name__ == "__main__":
     main()
+    print("Done!")
+    logging.info("Done!")
