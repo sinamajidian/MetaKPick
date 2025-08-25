@@ -20,8 +20,8 @@ def apply_RF_model(cases_classify_intersect,features_cases,read_names_list,loade
         #y_pred_binary = np.round(y_pred)  # round(0.55)=1
         #logging.debug("loaded_regression_dic[case]"+str(loaded_regression_dic[case]))
 
-    for read_name_idx,read_name in enumerate(read_names_list):        
-        read_k_prob[read_name][case_idx]= y_pred[read_name_idx]
+        for read_name_idx,read_name in enumerate(read_names_list):        
+            read_k_prob[read_name][case_idx]= y_pred[read_name_idx]
 
     return read_k_prob
 

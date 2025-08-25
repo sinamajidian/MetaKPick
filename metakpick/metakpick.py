@@ -11,6 +11,7 @@ import pickle
 from datetime import datetime
 np.random.seed(42)
 
+import _utils
 import _training
 import _classifier
 import _utils_tree
@@ -47,6 +48,7 @@ def main():
     parser.add_argument('--tree_file', type=str, help='Tree file')
     parser.add_argument('--tax_genome_file', type=str, help='Tax genome file')
     parser.add_argument('--kmer_list', type=str, help='K-mer list file comma separated') # 19,21,23 
+    parser.add_argument('--plot_tree', action='store_true', help='Plot the tree')
     #parser.add_argument('--help', action='store_true', help='show this help message and exit')
     #parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     args = parser.parse_args()
@@ -63,6 +65,7 @@ def main():
     output_file_name=args.output_file_name
     tree_file=args.tree_file
     tax_genome_file=args.tax_genome_file
+    plot_tree=args.plot_tree
     kmer_list=[] if args.kmer_list is None else [int(kmer) for kmer in args.kmer_list.split(',')]
     logging.info("Input kmer list: "+str(kmer_list))
 
@@ -116,7 +119,7 @@ def main():
         
         logging.info("Getting the tp binary reads cases")
         tp_binary_reads_cases = _training.get_tp_binary_reads_cases(cases, read_names_list, reads_tp_cases)
-        features_cases, feature_names = _training.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents)
+        features_cases, feature_names = _utils.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents)
         logging.info("Cases in features: "+str(features_cases.keys()))
         
         logging.info("Training the RF model")
@@ -153,8 +156,6 @@ def main():
         # remvoe [0] for the new model 
 
 
-
-
         logging.info("Model loaded"+str(loaded_regression_dic))
         
         #classify_folder=workingdir+"../changek/simulatation/classification/max15/"
@@ -173,7 +174,7 @@ def main():
         logging.info("Getting the tax depth")
         read_tax_depth = _utils_kraken.get_tax_depth(kraken_kmers_cases, info,parents)
         logging.info("Getting the features")
-        features_cases, feature_names = _training.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents)
+        features_cases, feature_names = _utils.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents)
         logging.info("Cases in features: "+str(features_cases.keys()))
         logging.info("Applying the model")
         
