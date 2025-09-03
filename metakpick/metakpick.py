@@ -80,7 +80,7 @@ def main():
 
     info, Tree, tax_index, tax_genome, parents, tree_df = _utils_tree.get_tax_info(tree_file,tax_genome_file)    
     tax2path, tax2depth = _utils_tree.get_tax2path(tax_genome, info, parents)
-    tax_level='species'  # training level 
+    tax_level_training='species'  # training level 
 
     if mode=="train": 
         #folder_input =workingdir+"../changek/simulatation/classification/max15/"
@@ -119,7 +119,7 @@ def main():
         # logging.info("Getting the tax depth")
         read_tax_depth = _utils_kraken.get_tax_depth(kraken_kmers_cases, info,parents)
         
-        reads_tp_cases = _utils_kraken.calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_level,tax_index,read_names_list)
+        reads_tp_cases = _utils_kraken.calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_level_training,tax_index,read_names_list)
         
         logging.info("Getting the tp binary reads cases")
         tp_binary_reads_cases = _training.get_tp_binary_reads_cases(cases, read_names_list, reads_tp_cases)
@@ -191,7 +191,8 @@ def main():
         cases_model= list(loaded_regression_dic.keys())
         cases_classify_intersect=sorted(list(set(cases_classify).intersection(set(cases_model))))
         if kmer_list:   
-            cases_classify_intersect=sorted(list(set(cases_classify_intersect).intersection(set(kmer_list))))
+            kmer_list_set=set(['k'+str(kmer) for kmer in kmer_list])
+            cases_classify_intersect=sorted(list(set(cases_classify_intersect).intersection(set(kmer_list_set))))
         logging.info("Cases in the input for classification intersected with the kmer list: "+str(cases_classify_intersect))    
             
         logging.info("Cases in the input for classification: "+str(cases_classify))
@@ -228,10 +229,13 @@ def main():
             logging.info("Reading the truth file: "+truth_file)
             dic_tax_truth = _utils_kraken.read_truth_file(truth_file)
             logging.info("Number of reads in the truth file: "+str(len(dic_tax_truth)))
-            
-            reads_tp_cases = _utils_kraken.calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_level,tax_index,read_names_list)
+            reads_tp_cases_all={}
+            for tax_level in ['species','genus','family','order','class']:
+                reads_tp_cases_all[tax_level] = _utils_kraken.calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_level,tax_index,read_names_list)
 
             logging.info("cleaning reported tax for all kmer sizes")
+
+
             kraken_reportedtax_cases=dict()
             kraken_reportedtax_cases['RF']=estimated_tax_dict
             for case in cases_classify_intersect:
@@ -241,16 +245,22 @@ def main():
                     kraken_reportedtax_cases[case][read_name]=reported_tax
 
             
+            kraken_reportedtax_cases["Random"]={} 
             for read_name in read_names_list:
-                true_k_set= reads_tp_cases[read_name]
-                found_true_tax= 0
-                if true_k_set:
-                    case_true_k = 'k'+str(list(true_k_set)[0])
-                    found_true_tax = kraken_reportedtax_cases[case_true_k][read_name]
-                kraken_reportedtax_cases[ "Oracle"][read_name]  = found_true_tax           	     
-
                 case_random = cases_classify_intersect[random.randint(0, len(cases_classify_intersect)-1)]
                 kraken_reportedtax_cases["Random"][read_name]  = kraken_reportedtax_cases[case_random][read_name]      	     
+
+            kraken_reportedtax_cases[ "Oracle"]={}
+            for tax_level in ['species','genus','family','order','class']:
+                kraken_reportedtax_cases[ "Oracle"][tax_level]={}
+                for read_name in read_names_list:
+                    true_k_set= reads_tp_cases_all[tax_level][read_name]
+                    found_true_tax= 0
+                    if true_k_set:
+                        case_true_k = 'k'+str(list(true_k_set)[0])
+                        found_true_tax = kraken_reportedtax_cases[case_true_k][read_name]
+                    kraken_reportedtax_cases[ "Oracle"][tax_level][read_name]  = found_true_tax           	     
+
 
 
 
@@ -259,9 +269,13 @@ def main():
             print("case\tF1\tprecision\trecall\tTP\tFP\tVP")
             for level in ['species','genus','family','order','class']:
                 print("level: "+level)
-                for case in list(cases_classify_intersect)+["RF"+"Random","Oracle"]:
+                for case in list(cases_classify_intersect)+["RF","Random","Oracle"]:
                     logging.info("Calculating the tp fp for case: "+case)
-                    read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case],dic_tax_truth,info,tree_df,parents,level,tax_index)
+                    if case=='Oracle':
+                        read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case][level],dic_tax_truth,info,tree_df,parents,level,tax_index)
+                    else:
+                        read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case],dic_tax_truth,info,tree_df,parents,level,tax_index)
+                
                     logging.info("Number of reads in the TP: "+str(len(read_tpfp_dic['TP'])))
 
                     FP=len(read_tpfp_dic['FP-level-index'])+len(read_tpfp_dic['FP-higher-index'])+len(read_tpfp_dic['FP-level-notindex'])+len(read_tpfp_dic['FP-higher-notindex'])
