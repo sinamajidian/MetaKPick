@@ -9,8 +9,8 @@ import _utils_tree
 
 def get_features_read(tax_kmer_num_dic, num_nodes_tree,kmer_reported_tax,rlen):
     
-    
-    num_kmer_all=np.array(list(tax_kmer_num_dic.keys()),dtype=np.int32)
+    # tax_kmer_num_dic[tax]+=num
+    num_kmer_all=np.array(list(tax_kmer_num_dic.values()),dtype=np.int32)
     num_kmer_norm=num_kmer_all/rlen # read_length_dic[read_id]
     
 
