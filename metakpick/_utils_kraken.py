@@ -39,7 +39,7 @@ def calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_l
         logging.debug('finding true k for case '+case)
         #merged  = _utils_kraken.read_kraken_classification(cases, truth_file, classification_folder )    
         
-        tax_level='species'
+        
         read_tpfp_dic_case= calculate_tp_fp("raw_kraken",kraken_kmers,dic_tax_truth,info,tree_df,parents,tax_level,tax_index)
         logging.debug("Number of reads in the case TP : "+str(len(read_tpfp_dic_case['TP'])))
         if len(read_tpfp_dic_case['notruth']):
@@ -152,7 +152,21 @@ def calculate_tp_fp(mode,input_dic,dic_tax_truth,info,tree_df,parents,tax_level,
                'inconsistent-tool':set(), 'TN':set(),
                'FN':set(),'VP':set(), "truth-level":set(), "no-truth-level":set(),"total_unclassified":set(),'notruth':[]} #  at the level ,'taxNotfoundintool':[]
     
-
+    tid_true_taxlevel_dic={}
+    tax_true_all = set(dic_tax_truth.values())
+    for tid_true in tax_true_all:
+        tid_true_taxlevel_dic[tid_true] = int(_utils_tree.find_tax_level(info,tree_df,parents, tid_true, tax_level))
+    tax_predicted_level_dic={}
+    tax_predicted_raw=set()    
+    for read_name, kraken_read_info in input_dic.items():
+        if mode=="raw_kraken":
+            tax_predicted_raw.add(kraken_read_info[0])
+        elif mode=="predicted_tax":
+            tax_predicted_raw.add(kraken_read_info)
+    tax_predicted_raw.add(2) # todo check the other place  where we added 2  
+    for tax_predicted in tax_predicted_raw:
+        tax_predicted_level_dic[tax_predicted] = int(_utils_tree.find_tax_level(info,tree_df,parents, tax_predicted, tax_level))
+    tax_predicted_list_tocheck=[]
     for read_name, kraken_read_info in input_dic.items():
         if read_name not in dic_tax_truth:
             read_tpfp_dic['notruth'].append(read_name)
@@ -166,10 +180,10 @@ def calculate_tp_fp(mode,input_dic,dic_tax_truth,info,tree_df,parents,tax_level,
             raise ValueError("mode not supported")
 
         if tax_predicted==1:
-            tax_predicted=2 # probably 1 has another meaning in find tax level, that's fine the level should be much deeper 
+            tax_predicted=2 # todo probably 1 has another meaning in find tax level, that's fine the level should be much deeper 
     
-        tax_true_level = _utils_tree.find_tax_level(info,tree_df,parents, tax_true, tax_level)
-        tax_predicted_level = _utils_tree.find_tax_level(info,tree_df,parents, tax_predicted, tax_level)
+        tax_true_level = tid_true_taxlevel_dic[tax_true]
+        tax_predicted_level = tax_predicted_level_dic[tax_predicted]
     
         if tax_predicted_level==-1 and tax_predicted!=0:
             read_tpfp_dic['inconsistent-tool'].add(read_name)
@@ -178,7 +192,7 @@ def calculate_tp_fp(mode,input_dic,dic_tax_truth,info,tree_df,parents,tax_level,
     
         if tax_predicted==0 :
             read_tpfp_dic["total_unclassified"].add(read_name)
-        tax_predicted_list_tocheck=[]
+        
         if tax_predicted==-1 or tax_true_level < 1:
             tax_predicted_list_tocheck.append(tax_predicted)
         
@@ -487,6 +501,6 @@ def read_kraken_all(cases, classification_folder): # , readids_max, num_reads=10
             if read_names_case0 != read_names_case:
                 logging.warning("we expect the same reads in all cases. The "+case+" is not the same as the case "+case+str(len(read_names_case0))+" "+str(len(read_names_case))) 
 
-    return read_names_case0, kraken_kmers_cases
+    return list(read_names_case0), kraken_kmers_cases
 
 
