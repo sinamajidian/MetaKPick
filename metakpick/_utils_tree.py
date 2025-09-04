@@ -64,7 +64,7 @@ def get_tax_info(tree_file,tax_genome_file):
     return info, Tree, tax_index, tax_genome, parents, tree_df
 
 
-def get_tax2path(tax_genome, info, parents):
+def get_tax2path(tax_genome, info, parents,tree_df):
 
     tax2root_all=[]
     tax2root_all_dic={} # paths endint at all levels 
@@ -91,7 +91,16 @@ def get_tax2path(tax_genome, info, parents):
                 tax2path[tax]=[tax2root_path_idx]
     logging.debug("number of tax2path "+str(len(tax2path))+" "+str(len(tax2depth)))
 
-    return tax2path, tax2depth
+    tax_genome_specieslevel=set()
+    tax_level='species'
+    for tax in tax_genome: # only at species level other wise I should use tax_index
+        tax_taxlevel = find_tax_level(info,tree_df,parents, tax, tax_level)
+        if tax_taxlevel>1:   #!=1 and != -1  if the tax is species or lower
+            tax_genome_specieslevel.add(tax_taxlevel)
+    print('number of tax genome at species ',len(tax_genome_specieslevel), 'all input ', len(tax_genome))
+
+
+    return tax2path, tax2depth, tax2root_all_dic, tax_genome_specieslevel
 
 
 
