@@ -4,6 +4,7 @@ import pandas as pd
 import _utils_tree
 from collections import Counter
 import logging
+import copy
 
 def read_truth_file(truth_file):
     merged = pd.read_csv(truth_file, names=["read_name", "taxon"])
@@ -504,3 +505,56 @@ def read_kraken_all(cases, classification_folder): # , readids_max, num_reads=10
     return list(read_names_case0), kraken_kmers_cases
 
 
+
+def traverse_from_root(current_node, input_tree, num_kmers_path, tax_kmer_num_dic):
+    children_nodes = input_tree[current_node]
+    print(current_node, len(children_nodes))    
+    for child_node in children_nodes:
+        num_kmers_current = tax_kmer_num_dic.get(child_node,0)
+        num_kmers_pth_uptonow = 0
+        if num_kmers_current: 
+            if current_node in num_kmers_path:
+                if num_kmers_path[current_node][0]==0:
+                    last_non_zero_node = num_kmers_path[current_node][1]
+                    num_kmers_pth_uptonow = num_kmers_path[last_non_zero_node][0] #.get(current_node,0)
+                else:
+                    num_kmers_pth_uptonow = num_kmers_path[current_node][0]
+                
+            num_kmers_pth_uptonow = num_kmers_pth_uptonow  + num_kmers_current
+            if num_kmers_pth_uptonow: # avoid keeping paths with zeros 
+                num_kmers_path[child_node] = (num_kmers_pth_uptonow, child_node)
+                print(child_node, num_kmers_path[child_node])
+        else:
+            num_kmers_path[child_node] = (0, num_kmers_path[current_node][1]) # keep the last non-zero node
+            
+        if child_node in input_tree: # the child node has its own child
+            traverse_from_root(child_node, input_tree, num_kmers_path,tax_kmer_num_dic)
+    return 1
+
+
+def calculate_num_kmers_path(Tree, tax_kmer_num_dic):
+
+    if 1 in Tree and 1 in Tree[1]:
+        Tree_updated = copy.deepcopy(Tree)
+        Tree_updated[1].remove(1)
+    else:
+        Tree_updated = Tree
+
+    root=1
+    num_kmers_path={root:tax_kmer_num_dic.get(root,0)}
+    traverse_from_root(root, Tree_updated, num_kmers_path,tax_kmer_num_dic)
+    # Tree2={1:{2,3,8},2:{4,5},3:{6,7},8:{11,12}}
+    # child2parent={}
+    # for parent, children in Tree2.items():
+    #     for child in children:
+    #         child2parent[child]=parent
+    # print('number of leaves',len(child2parent))
+
+    # num_kmers_path={}
+    # tax_kmer_num_dic={i:i*10 for i in range(1,13)}
+    # tax_kmer_num_dic[11]=0
+    # tax_kmer_num_dic[12]=0
+
+
+
+    return num_kmers_path
