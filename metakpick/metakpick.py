@@ -79,7 +79,7 @@ def main():
     #tax_genome_file= in_folder + "seqid2taxid.map_tax_uniq"
 
     info, Tree, tax_index, tax_genome, parents, tree_df = _utils_tree.get_tax_info(tree_file,tax_genome_file)    
-    tax2path, tax2depth = _utils_tree.get_tax2path(tax_genome, info, parents)
+    tax2path, tax2depth, tax2root_all_dic, tax_genome_specieslevel = _utils_tree.get_tax2path(tax_genome, info, parents,tree_df)
     tax_level_training='species'  # training level 
 
     if mode=="train": 
@@ -117,7 +117,7 @@ def main():
         logging.info("Reading the kraken kmers from: "+kraken_output_folder)
         read_names_list, kraken_kmers_cases = _utils_kraken.read_kraken_all(cases, kraken_output_folder)
         # logging.info("Getting the tax depth")
-        read_tax_depth = _utils_kraken.get_tax_depth(kraken_kmers_cases, info,parents)
+        read_tax_depth = _utils_kraken.get_tax_depth(kraken_kmers_cases, info, parents)
         
         reads_tp_cases = _utils_kraken.calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_level_training,tax_index,read_names_list)
         
@@ -127,7 +127,7 @@ def main():
         logging.info("Cases in features: "+str(features_cases.keys()))
         
         logging.info("Training the RF model")
-        regr_dic = _training.train_RF_model_all(features_cases, tp_binary_reads_cases,read_names_list,n_estimators=1000, max_features=float(0.8), max_leaf_nodes=50, random_state=14, n_jobs=20) 
+        regr_dic = _training.train_RF_model_all(features_cases, tp_binary_reads_cases, read_names_list, n_estimators=1000, max_features=float(0.8), max_leaf_nodes=50, random_state=14, n_jobs=20) 
         logging.info("Saving the model")
         logging.info(regr_dic)
 
