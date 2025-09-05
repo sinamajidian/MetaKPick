@@ -109,16 +109,76 @@ def get_features_half_read(reported_tax, tax_kmer_dic, rlen, below_tax_all_perre
     feature_half_read = [np.mean(diff_fromnext_seg)]
     return feature_half_read
 
-def get_features_path(Tree, tax_index, reported_tax, tax_kmer_num_dic, tax2path, rlen,num_nodes_tree,info, parents):
-    num_kmers_path_updated= _utils_kraken.calculate_num_kmers_path(Tree, tax_kmer_num_dic, tax_index)
+
+
+
+def traverse_from_root(current, tree, num_kmers_path, tax_kmer_num_dic, child2parent):
+    #print(current)  
+    num_kmers_node = tax_kmer_num_dic.get(current,0)
+    if current in child2parent:
+        parent = child2parent[current]
+        if num_kmers_node:
+            if num_kmers_path[parent][0]: # if parent kmer is nonzero 
+                num_kmers_path_upto_parent = num_kmers_path[parent][0]
+            else:
+                last_nonzero_parent= num_kmers_path[parent][1]
+                num_kmers_path_upto_parent= num_kmers_path[last_nonzero_parent][0] #print('here',current, parent, last_nonzero_parent)
+            num_kmers_path[current] = (num_kmers_path_upto_parent + num_kmers_node, current)
+            #print('current:', current,' parent:',parent,' num_parrent:', num_kmers_path[parent][0],' num_current_path:', num_kmers_path[current])
+        else:
+            last_nonzero_parent=num_kmers_path[parent][1]
+            num_kmers_path[current] = (0, last_nonzero_parent)
+        
+    else:  # this is root
+        num_kmers_path[current] = (num_kmers_node, current)
+    if current in tree: 
+        children = tree[current]
+        for child in children:
+            traverse_from_root(child, tree, num_kmers_path,tax_kmer_num_dic, child2parent)
+    # else: current is a leaf, no child 
+    return 1
+
+
+
+def calculate_num_kmers_path(Tree_updated, tax_kmer_num_dic,child2parent):
+    
+    # logging.debug('number of leaves',len(child2parent))
+    root=1
+    num_kmers_path={}
+    traverse_from_root(root, Tree_updated, num_kmers_path,tax_kmer_num_dic, child2parent)
+    #print('number of nodes',len(num_kmers_path))
+
+    num_kmers_path_updated ={node:accum for node, (accum,nn) in num_kmers_path.items() if accum!=0}
+
+    #len(Tree), len(tax_kmer_num_dic), len(num_kmers_path), len(num_kmers_path_updated)
+    # Tree2={1:{2,3,8},2:{4,5},3:{6,7},8:{11,12}}
+    # child2parent={}
+    # for parent, children in Tree2.items():
+    #     for child in children:
+    #         child2parent[child]=parent
+    # print('number of leaves',len(child2parent))
+
+    # num_kmers_path={}
+    # tax_kmer_num_dic={i:i*10 for i in range(1,13)}
+    # tax_kmer_num_dic[11]=0
+    # tax_kmer_num_dic[12]=0
+
+    return num_kmers_path_updated
+
+
+
+
+def get_features_path(Tree_updated, reported_tax, tax_kmer_num_dic, rlen,num_nodes_tree,info, parents,child2parent):
+    num_kmers_path_updated= calculate_num_kmers_path(Tree_updated, tax_kmer_num_dic,child2parent)
 
     num_kmer_path_all=np.array(list(num_kmers_path_updated.values()),dtype=np.int32)
     num_kmer_norm=num_kmer_path_all/rlen # read_length_dic[read_id]
     if reported_tax in num_kmers_path_updated:
         kmer_reported_tax =  num_kmers_path_updated[reported_tax]
     else:
-        path_reported_tax= _utils_tree.find_tax2root(info, parents, reported_tax)
-        kmer_reported_tax = np.sum([ tax_kmer_num_dic.get(tax, 0) for tax in path_reported_tax])
+        kmer_reported_tax= 0 # todo uncomment the below
+        #path_reported_tax= _utils_tree.find_tax2root(info, parents, reported_tax)
+        #kmer_reported_tax = np.sum([ tax_kmer_num_dic.get(tax, 0) for tax in path_reported_tax])
         
     mean_exc_tax = (np.sum(num_kmer_path_all)-kmer_reported_tax)/num_nodes_tree # todo maybe divid by numebr of paths
     #feature_names=['mean_nonzero','mean_all','max','sum', 'mean_exc_tax']
@@ -132,8 +192,18 @@ def get_features_path(Tree, tax_index, reported_tax, tax_kmer_num_dic, tax2path,
 
 
 
+
+
 def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents, Tree, tax_index):
-        
+    
+    Tree_updated ={node:node_set.intersection(tax_index) for node,node_set in  Tree.items() if  node in tax_index}
+    if 1 in Tree_updated and 1 in Tree_updated[1]:
+        Tree_updated[1].remove(1)
+    child2parent = { }
+    for parent, children in Tree_updated.items():
+        for child in children:
+            child2parent[child]=parent
+
     feature_names = ['mean_nonzero', 'mean_all', 'max', 'sum', 'mean_exc_tax', 'mean_all/rlen', 'mean_nonzero/rlen', 'max/rlen', 'sum/rlen', 'mean_exc_tax/rlen', 
                 'depth_reported_tax', 'Avg_kmer_consecutive', 'WAvg_kmer_consecutive', 'kmer_reported_tax', 'kmer_tax_above', 'kmer_tax_below', 
                 'kmer_tax/rlen', 'kmer_tax_above/rlen', 'kmer_tax_below/rlen', 'kmer_othertax', 'kmer_othertax_above', 'kmer_othertax_below', 
@@ -152,7 +222,7 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_dep
         kmer_size= int(case[1:])
         X3=[]
         for read_idx,read_name in enumerate(read_names_list):
-            if read_idx%20000==0:
+            if read_idx%10000==0:
                 logging.debug("Extracting features for read idx: "+str(read_idx)+"  out of "+str(len(read_names_list)))
 
             reported_tax, rlen, tax_kmer_dic, tax_kmer_num_dic = kraken_kmers_cases[case].get(read_name, (0,0,{},{}))  # read length
@@ -176,7 +246,8 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_dep
 
             feature_half_read = get_features_half_read(reported_tax, tax_kmer_dic, rlen, below_tax_all_perread)
 
-            features_path=get_features_path(Tree, tax_index, reported_tax, tax_kmer_num_dic, tax2path, rlen,num_nodes_tree,info, parents)
+            features_path=get_features_path(Tree_updated, reported_tax, tax_kmer_num_dic, rlen,num_nodes_tree,info, parents,child2parent)
+            #features_path=[0]*9 #np.zeros(9)
 
             features=features_read + features_depth+ features_tax+ feature_half_read + [rlen] + features_path
             #print(sum(features))

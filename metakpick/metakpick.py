@@ -206,7 +206,7 @@ def main():
         logging.info("Getting the tax depth")
         read_tax_depth = _utils_kraken.get_tax_depth(kraken_kmers_cases, info,parents)
         logging.info("Getting the features")
-        features_cases, feature_names = _utils.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents)
+        features_cases, feature_names = _utils.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents, Tree, tax_index)
         logging.info("Cases in features: "+str(features_cases.keys()))
         logging.info("Applying the model")
         
