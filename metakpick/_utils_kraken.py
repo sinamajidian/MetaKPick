@@ -504,45 +504,55 @@ def read_kraken_all(cases, classification_folder): # , readids_max, num_reads=10
 
     return list(read_names_case0), kraken_kmers_cases
 
-
-
-def traverse_from_root(current_node, input_tree, num_kmers_path, tax_kmer_num_dic):
-    children_nodes = input_tree[current_node]
-    print(current_node, len(children_nodes))    
-    for child_node in children_nodes:
-        num_kmers_current = tax_kmer_num_dic.get(child_node,0)
-        num_kmers_pth_uptonow = 0
-        if num_kmers_current: 
-            if current_node in num_kmers_path:
-                if num_kmers_path[current_node][0]==0:
-                    last_non_zero_node = num_kmers_path[current_node][1]
-                    num_kmers_pth_uptonow = num_kmers_path[last_non_zero_node][0] #.get(current_node,0)
-                else:
-                    num_kmers_pth_uptonow = num_kmers_path[current_node][0]
-                
-            num_kmers_pth_uptonow = num_kmers_pth_uptonow  + num_kmers_current
-            if num_kmers_pth_uptonow: # avoid keeping paths with zeros 
-                num_kmers_path[child_node] = (num_kmers_pth_uptonow, child_node)
-                print(child_node, num_kmers_path[child_node])
+def traverse_from_root(current, tree, num_kmers_path, tax_kmer_num_dic, child2parent):
+    #print(current)  
+    num_kmers_node = tax_kmer_num_dic.get(current,0)
+    if current in child2parent:
+        parent = child2parent[current]
+        if num_kmers_node:
+            if num_kmers_path[parent][0]: # if parent kmer is nonzero 
+                num_kmers_path_upto_parent = num_kmers_path[parent][0]
+            else:
+                last_nonzero_parent= num_kmers_path[parent][1]
+                num_kmers_path_upto_parent= num_kmers_path[last_nonzero_parent][0] #print('here',current, parent, last_nonzero_parent)
+            num_kmers_path[current] = (num_kmers_path_upto_parent + num_kmers_node, current)
+            #print('current:', current,' parent:',parent,' num_parrent:', num_kmers_path[parent][0],' num_current_path:', num_kmers_path[current])
         else:
-            num_kmers_path[child_node] = (0, num_kmers_path[current_node][1]) # keep the last non-zero node
-            
-        if child_node in input_tree: # the child node has its own child
-            traverse_from_root(child_node, input_tree, num_kmers_path,tax_kmer_num_dic)
+            last_nonzero_parent=num_kmers_path[parent][1]
+            num_kmers_path[current] = (0, last_nonzero_parent)
+        
+    else:  # this is root
+        num_kmers_path[current] = (num_kmers_node, current)
+    if current in tree: 
+        children = tree[current]
+        for child in children:
+            traverse_from_root(child, tree, num_kmers_path,tax_kmer_num_dic, child2parent)
+    # else: current is a leaf, no child 
     return 1
 
 
-def calculate_num_kmers_path(Tree, tax_kmer_num_dic):
 
-    if 1 in Tree and 1 in Tree[1]:
-        Tree_updated = copy.deepcopy(Tree)
+def calculate_num_kmers_path(Tree, tax_kmer_num_dic, tax_index):
+    Tree_updated ={node:node_set.intersection(tax_index) for node,node_set in  Tree.items() if  node in tax_index}
+
+    if 1 in Tree_updated and 1 in Tree_updated[1]:
         Tree_updated[1].remove(1)
-    else:
-        Tree_updated = Tree
 
     root=1
-    num_kmers_path={root:tax_kmer_num_dic.get(root,0)}
-    traverse_from_root(root, Tree_updated, num_kmers_path,tax_kmer_num_dic)
+    child2parent = { }
+    for parent, children in Tree_updated.items():
+        for child in children:
+            child2parent[child]=parent
+    # logging.debug('number of leaves',len(child2parent))
+
+    num_kmers_path={}
+    traverse_from_root(root, Tree_updated, num_kmers_path,tax_kmer_num_dic, child2parent)
+    #print('number of nodes',len(num_kmers_path))
+
+    traverse_from_root(1, Tree_updated,num_kmers_path,tax_kmer_num_dic, child2parent) #, num_kmers_path, tax_kmer_num_dic)
+    num_kmers_path_updated ={node:accum for node, (accum,nn) in num_kmers_path.items() if accum!=0}
+
+    #len(Tree), len(tax_kmer_num_dic), len(num_kmers_path), len(num_kmers_path_updated)
     # Tree2={1:{2,3,8},2:{4,5},3:{6,7},8:{11,12}}
     # child2parent={}
     # for parent, children in Tree2.items():
@@ -555,6 +565,6 @@ def calculate_num_kmers_path(Tree, tax_kmer_num_dic):
     # tax_kmer_num_dic[11]=0
     # tax_kmer_num_dic[12]=0
 
+    return num_kmers_path_updated
 
 
-    return num_kmers_path
