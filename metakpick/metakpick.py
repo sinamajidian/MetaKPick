@@ -123,7 +123,7 @@ def main():
         
         logging.info("Getting the tp binary reads cases")
         tp_binary_reads_cases = _training.get_tp_binary_reads_cases(cases, read_names_list, reads_tp_cases)
-        features_cases, feature_names = _utils.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents)
+        features_cases, feature_names = _utils.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents, Tree, tax_index)
         logging.info("Cases in features: "+str(features_cases.keys()))
         
         logging.info("Training the RF model")
