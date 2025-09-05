@@ -4,21 +4,19 @@
 import logging
 import numpy as np
 import _utils_tree
-
+import _utils_kraken
 
 
 def get_features_read(tax_kmer_num_dic, num_nodes_tree,kmer_reported_tax,rlen):
     
     # tax_kmer_num_dic[tax]+=num
-    num_kmer_all=np.array(list(tax_kmer_num_dic.values()),dtype=np.int32)
-    num_kmer_norm=num_kmer_all/rlen # read_length_dic[read_id]
-    
+    num_kmer_nonzero=np.array(list(tax_kmer_num_dic.values()),dtype=np.int32)
+    num_kmer_norm=num_kmer_nonzero/rlen # read_length_dic[read_id]
 
-
-    mean_exc_tax = (np.sum(num_kmer_all)-kmer_reported_tax)/num_nodes_tree
+    mean_exc_tax = (np.sum(num_kmer_nonzero)-kmer_reported_tax)/num_nodes_tree
     
     #feature_names=['mean_all','mean_nonzero','max','sum', 'mean_exc_tax']
-    features_read=[np.mean(num_kmer_all), np.mean(num_kmer_all)*len(num_kmer_all)/num_nodes_tree, np.max(num_kmer_all),np.sum(num_kmer_all),mean_exc_tax]
+    features_read=[np.mean(num_kmer_nonzero), np.mean(num_kmer_nonzero)*len(num_kmer_nonzero)/num_nodes_tree, np.max(num_kmer_nonzero),np.sum(num_kmer_nonzero),mean_exc_tax]
     #feature_names+=['mean_all/rlen','mean_nonzero/rlen','max/rlen','sum/rlen', 'mean_exc_tax/rlen'] # /readlength
     features_read+=[np.mean(num_kmer_norm)/rlen, np.mean(num_kmer_norm)*len(num_kmer_norm)/num_nodes_tree/rlen, 
                 np.max(num_kmer_norm)/rlen,np.sum(num_kmer_norm)/rlen, mean_exc_tax/rlen]
@@ -111,17 +109,38 @@ def get_features_half_read(reported_tax, tax_kmer_dic, rlen, below_tax_all_perre
     feature_half_read = [np.mean(diff_fromnext_seg)]
     return feature_half_read
 
+def get_features_path(Tree, tax_index, reported_tax, tax_kmer_num_dic, tax2path, rlen,num_nodes_tree,info, parents):
+    num_kmers_path_updated= _utils_kraken.calculate_num_kmers_path(Tree, tax_kmer_num_dic, tax_index)
 
-
-
-
-
-def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents):
+    num_kmer_path_all=np.array(list(num_kmers_path_updated.values()),dtype=np.int32)
+    num_kmer_norm=num_kmer_path_all/rlen # read_length_dic[read_id]
+    if reported_tax in num_kmers_path_updated:
+        kmer_reported_tax =  num_kmers_path_updated[reported_tax]
+    else:
+        path_reported_tax= _utils_tree.find_tax2root(info, parents, reported_tax)
+        kmer_reported_tax = np.sum([ tax_kmer_num_dic.get(tax, 0) for tax in path_reported_tax])
         
-    feature_names = ['mean_all', 'mean_nonzero', 'max', 'sum', 'mean_exc_tax', 'mean_all/rlen', 'mean_nonzero/rlen', 'max/rlen', 'sum/rlen', 'mean_exc_tax/rlen', 
+    mean_exc_tax = (np.sum(num_kmer_path_all)-kmer_reported_tax)/num_nodes_tree # todo maybe divid by numebr of paths
+    #feature_names=['mean_nonzero','mean_all','max','sum', 'mean_exc_tax']
+    features_read_path=[np.mean(num_kmer_path_all),np.mean(num_kmer_path_all)*len(num_kmer_path_all)/num_nodes_tree, np.max(num_kmer_path_all),np.sum(num_kmer_path_all),mean_exc_tax]
+    #feature_names+=['mean_nonzero/rlen','max/rlen','sum/rlen', 'mean_exc_tax/rlen'] # /readlength
+    features_read_path+=[np.mean(num_kmer_norm)/rlen, np.mean(num_kmer_norm)*len(num_kmer_norm)/num_nodes_tree/rlen, 
+                np.max(num_kmer_norm)/rlen,np.sum(num_kmer_norm)/rlen]
+    return features_read_path
+
+
+
+
+
+def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents, Tree, tax_index):
+        
+    feature_names = ['mean_nonzero', 'mean_all', 'max', 'sum', 'mean_exc_tax', 'mean_all/rlen', 'mean_nonzero/rlen', 'max/rlen', 'sum/rlen', 'mean_exc_tax/rlen', 
                 'depth_reported_tax', 'Avg_kmer_consecutive', 'WAvg_kmer_consecutive', 'kmer_reported_tax', 'kmer_tax_above', 'kmer_tax_below', 
                 'kmer_tax/rlen', 'kmer_tax_above/rlen', 'kmer_tax_below/rlen', 'kmer_othertax', 'kmer_othertax_above', 'kmer_othertax_below', 
-                'kmer_othertax/rlen', 'kmer_othertax_above/rlen', 'kmer_othertax_below/rlen', 'diff#kmers_halfRead','rlen']
+                'kmer_othertax/rlen', 'kmer_othertax_above/rlen', 'kmer_othertax_below/rlen', 'diff#kmers_halfRead','rlen',
+                'path_mean_nonzero','path_mean_all','path_max','path_sum', 'path_mean_exc_tax',
+                'path_mean_nonzero/rlen','path_max/rlen','path_sum/rlen', 'path_mean_exc_tax/rlen']
+
     logging.debug("feature_names are : "+str(feature_names))
     
     num_nodes_tree = len(tax2path)  # 52229
@@ -156,8 +175,12 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_dep
             features_tax, below_tax_all_perread = get_features_tax(reported_tax, info, parents, tax_kmer_num_dic, depth_reported, tax2depth, kmer_reported_tax, rlen)
 
             feature_half_read = get_features_half_read(reported_tax, tax_kmer_dic, rlen, below_tax_all_perread)
-            features=features_read + features_depth+ features_tax+ feature_half_read + [rlen]
+
+            features_path=get_features_path(Tree, tax_index, reported_tax, tax_kmer_num_dic, tax2path, rlen,num_nodes_tree,info, parents)
+
+            features=features_read + features_depth+ features_tax+ feature_half_read + [rlen] + features_path
             #print(sum(features))
+
 
             X3.append(features)
             #print(sum(sum(X3)))
