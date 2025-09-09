@@ -9,8 +9,10 @@ import numpy as np
 import random
 import pickle
 from datetime import datetime
+import time 
 np.random.seed(42)
 
+import __init__
 import _utils
 import _training
 import _classifier
@@ -19,16 +21,14 @@ import _utils_kraken
 
 # import matplotlib.pyplot as plt
 # import seaborn as sns
-
-# import pickle
 # from collections import Counter
-# import random
 
-np.random.seed(42)
 
 
 
 def main():
+    start_time = time.time()    
+    version_info = str(__init__.__packagename__) + str(__init__.__version__)
 
     logging.basicConfig(level=logging.DEBUG,format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -41,15 +41,17 @@ def main():
     # parser.add_argument('--workingdir', type=str, help='Working directory')
     # parser.add_argument('--model', type=str, help='Model file')
     # parser.add_argument('--threads', type=int, help='Number of threads')
-    parser.add_argument('--kraken_output_folder', type=str, help='Kraken output folder')
+    parser.add_argument('--kraken_out', type=str, help='Kraken output folder')
     parser.add_argument('--truth_file', type=str, help='Truth file')
-    parser.add_argument('--model_folder', type=str, help='Model folder')
+    #parser.add_argument('--model_folder', type=str, help='Model folder')
     parser.add_argument('--model_file', type=str, help='Model file')
     parser.add_argument('--output_file_name', type=str, help='Output file name')
     parser.add_argument('--tree_file', type=str, help='Tree file')
     parser.add_argument('--tax_genome_file', type=str, help='Tax genome file')
     parser.add_argument('--kmer_list', type=str, help='K-mer list file comma separated') # 19,21,23 
     parser.add_argument('--plot_tree', action='store_true', help='Plot the tree')
+    parser.add_argument('--path_feature', action='store_true', help='To use path feature, slower')
+    parser.add_argument("--version", action="version", version=version_info)
     
     #parser.add_argument('--help', action='store_true', help='show this help message and exit')
     #parser.parse_args(args=None if sys.argv[1:] else ['--help'])
@@ -58,17 +60,20 @@ def main():
         parser.print_help()
         sys.exit(0)
     
+    # Print version information
+    logging.info(f"MetaKPick version: {version_info}")
     logging.info("Args: "+str(args))
     mode=args.mode # train or classify
     #workingdir=args.workingdir
-    kraken_output_folder=args.kraken_output_folder
+    kraken_output_folder=args.kraken_out
     truth_file=args.truth_file
-    model_folder=args.model_folder
+    #model_folder=args.model_folder
     output_file_name=args.output_file_name
     tree_file=args.tree_file
     tax_genome_file=args.tax_genome_file
     plot_tree=args.plot_tree
     model_file=args.model_file
+    path_feature=args.path_feature
     kmer_list=[] if args.kmer_list is None else [int(kmer) for kmer in args.kmer_list.split(',')]
     logging.info("Input kmer list: "+str(kmer_list))
 
@@ -123,7 +128,7 @@ def main():
         
         logging.info("Getting the tp binary reads cases")
         tp_binary_reads_cases = _training.get_tp_binary_reads_cases(cases, read_names_list, reads_tp_cases)
-        features_cases, feature_names = _utils.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents, Tree, tax_index)
+        features_cases, feature_names = _utils.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents, Tree, tax_index, path_feature)
         logging.info("Cases in features: "+str(features_cases.keys()))
         
         logging.info("Training the RF model")
@@ -131,21 +136,22 @@ def main():
         logging.info("Saving the model")
         logging.info(regr_dic)
 
-        if model_file is None:
-            now = datetime.now()
-            time_stamp_model = now.strftime("%Y%m%d_%H%M%S")
-            model_file = model_folder+"/Random_Forest_regression_models"+time_stamp_model+".pkl"
-        else:
-            if "/" in model_file:
-                model_file = model_file
-            else:
-                model_file = model_folder+"/"+model_file
+        # if model_file is None:
+        #     now = datetime.now()
+        #     time_stamp_model = now.strftime("%Y%m%d_%H%M%S")
+        #     model_file = model_folder+"/Random_Forest_regression_models"+time_stamp_model+".pkl"
+        # else:
+        #     if "/" in model_file:
+        #         model_file = model_file
+        #     else:
+        #         model_file = model_folder+"/"+model_file
 
         logging.info("Saving the model in: "+model_file)
         pickle.dump(regr_dic, open(model_file, "wb"))
         if plot_tree:
-            _training.plot_tree(regr_dic, feature_names, model_folder,num_trees=1)
-            logging.info("A few example decision trees plotted and saved in: "+model_folder)
+            folder_to_save=  "/".join(model_file.split("/")[:-1])
+            _training.plot_tree(regr_dic, feature_names, folder_to_save, num_trees=1)
+            logging.info("A few example decision trees plotted and saved in: "+folder_to_save)
     
     elif mode=="classify":
         #folder_input =workingdir+"../changek/simulatation/classification/max15/"
@@ -156,24 +162,22 @@ def main():
         #logging.info("Classifying the reads")
         #logging.info("Loading the model")
         #model_folder=workingdir+"results/"
-        if model_file is None:
-            model_files =[ model_file for  model_file in os.listdir(model_folder) if model_file.endswith(".pkl") and model_file.startswith("Random_Forest_regression_models")]
-            model_files.sort()
-            model_file=model_files[-1]
+        # if model_file is None:
+        #     model_files =[ model_file for  model_file in os.listdir(model_folder) if model_file.endswith(".pkl") and model_file.startswith("Random_Forest_regression_models")]
+        #     model_files.sort()
+        #     model_file=model_files[-1]
         
 
 
-        if model_file is None:
-            now = datetime.now()
-            time_stamp_model = now.strftime("%Y%m%d_%H%M%S")
-            model_file = model_folder+"/Random_Forest_regression_models"+time_stamp_model+".pkl"
-        else:
-            if "/" in model_file:
-                model_file = model_file
-            else:
-                model_file = model_folder+"/"+model_file
-
-
+        # if model_file is None:
+        #     now = datetime.now()
+        #     time_stamp_model = now.strftime("%Y%m%d_%H%M%S")
+        #     model_file = model_folder+"/Random_Forest_regression_models"+time_stamp_model+".pkl"
+        # else:
+        #     if "/" in model_file:
+        #         model_file = model_file
+        #     else:
+        #         model_file = model_folder+"/"+model_file
         #model_time_stamp=model_file.split("_")[1] # model_file=workingdir+"Random_Forest_regression_models"+model_time_stamp+".pkl" 
         logging.info("Loading the model: "+model_file)
         loaded_regression_dic= pickle.load(open(model_file, "rb")) # [0] # this is temprorary due to a mistke  remove 
@@ -289,7 +293,15 @@ def main():
                     
                     print(case,'\t',round(F1,4), round(precision,4),round(recall,4),len(read_tpfp_dic['TP']),FP,len(read_tpfp_dic['VP']))
                             
-            
+    logging.info("Done!")
+    # Calculate and print total runtime
+    end_time = time.time()
+    total_runtime = end_time - start_time
+    hours = int(total_runtime // 3600)
+    minutes = int((total_runtime % 3600) // 60)
+    seconds = total_runtime % 60
+    runtime_str = f"{hours:02d}:{minutes:02d}:{seconds:06.3f}"
+    logging.info(f"Total runtime: {runtime_str} (HH:MM:SS.sss)")
 
 if __name__ == "__main__":
     main()
