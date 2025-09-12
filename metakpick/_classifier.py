@@ -57,17 +57,28 @@ def get_best_tax_old(read_k_prob,read_names_list,kraken_kmers_cases,thr_minprob=
 
     return best_k_dic,estimated_tax_dict
 
+def get_genus_tax(estimated_tax_raw,info,parents):
+    list_tax2root = _utils_tree.find_tax2root(info,parents,estimated_tax_raw)
+    idx= list_tax2root.index(estimated_tax_raw)
+    if idx-1 > 0:
+        estimated_tax=list_tax2root[idx-1]
+    else:
+        estimated_tax=estimated_tax_raw
 
-def get_best_tax(read_k_prob,read_names_list,kraken_kmers_cases,thr_minprob,info,parents,version_decision='1'):
+    return estimated_tax
 
-    high_prob= 0.7
-    version_decision=1
+def get_best_tax(read_k_prob,read_names_list,kraken_kmers_cases,thr_minprob,thr_highprob_lca,thr_minprob_genus,info,parents,version_decision):
+    
     cases=list(kraken_kmers_cases.keys())
     best_k_dic={}
     estimated_tax_dict={}
     for read_name in read_names_list:
+        #print(read_name)
+        estimated_tax=0
+
         max_val = np.max(read_k_prob[read_name])
         if version_decision=="1":
+            #print("** Version decision is 1")
             if max_val >thr_minprob:
                 best_k = cases[np.argmax(read_k_prob[read_name])]
             else:
@@ -75,27 +86,42 @@ def get_best_tax(read_k_prob,read_names_list,kraken_kmers_cases,thr_minprob,info
             best_k_dic[read_name]=best_k                
             if  best_k!=-1:
                 estimated_tax= kraken_kmers_cases[best_k][read_name][0]
-            else:
-                estimated_tax=0
-        if version_decision=="2":
-            estimated_tax=0
+        elif version_decision=="2":
+            #print("** Version decision is 2")
             if max_val >thr_minprob:
                 k_high_prob=[]
                 for case_idx, case in enumerate(cases):
                     prob_k= read_k_prob[read_name][case_idx]
-                    if prob_k >high_prob:
+                    if prob_k >thr_highprob_lca:
                         k_high_prob.append(case)
+                
                 if k_high_prob:
+                    best_k_dic[read_name]= str(k_high_prob)
                     tax_list=[kraken_kmers_cases[k][read_name][0] for k in k_high_prob]
                     estimated_tax=  _utils_tree.lca_finder_list(info,parents, tax_list)
-                else: # no tax with prob > high_prob
+                else: # no tax with prob > high_prob but prob > thr_minprob
                     best_k = cases[np.argmax(read_k_prob[read_name])]
-                    if best_k!=-1:
+                    best_k_dic[read_name]=best_k  
+                    if best_k!=-1:    
                         estimated_tax= kraken_kmers_cases[best_k][read_name][0]
-                    else:
-                        estimated_tax=0
-
+        elif version_decision=="3": 
+            #print("** Version decision is 1")
+            if max_val >thr_minprob:
+                best_k = cases[np.argmax(read_k_prob[read_name])]
+                if  best_k!=-1:
+                    estimated_tax= kraken_kmers_cases[best_k][read_name][0]
+            elif max_val >thr_minprob_genus:
+                best_k = cases[np.argmax(read_k_prob[read_name])]
+                if  best_k != -1:
+                    estimated_tax_raw= kraken_kmers_cases[best_k][read_name][0]
+                    estimated_tax= get_genus_tax(estimated_tax_raw,info,parents)
+            else:
+                best_k=-1
+            best_k_dic[read_name]=best_k 
+            
+                
+            
         estimated_tax_dict[read_name ]=estimated_tax
 
-    logging.debug("** best k: "+str(Counter(best_k_dic.values())))
+    logging.debug("** best k: "+str(Counter(best_k_dic.values())) + " version decision: "+version_decision + " high_prob: "+str(thr_highprob_lca) + " min_prob: "+str(thr_minprob_genus) + " min_prob: "+str(thr_minprob))
     return best_k_dic,estimated_tax_dict
