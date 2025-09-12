@@ -37,7 +37,7 @@ def main():
     #mode_group = parser.add_mutually_exclusive_group(required=True)
     #mode_group.add_argument('--train', action='store_true', help='Run the training of the model')
     #mode_group.add_argument('--classify', action='store_true', help='Run the classification of the model')
-    parser.add_argument('--mode', type=str, help='train or classify')
+    parser.add_argument('--mode', type=str, default='classify', help='train or classify')
     # parser.add_argument('--workingdir', type=str, help='Working directory')
     # parser.add_argument('--model', type=str, help='Model file')
     # parser.add_argument('--threads', type=int, help='Number of threads')
@@ -52,7 +52,11 @@ def main():
     parser.add_argument('--plot_tree', action='store_true', help='Plot the tree')
     parser.add_argument('--path_feature', action='store_true', help='To use path feature, slower')
     parser.add_argument("--version", action="version", version=version_info)
-    
+    parser.add_argument('--version_decision', type=str, default='1', help='Version decision')
+    parser.add_argument('--thr_minprob', type=str, default='1', help='with version_decision 1/2/3, threshold for minimum probability to decide unclassified reads')
+    parser.add_argument('--thr_highprob_lca', type=str, default='1', help='with version_decision 2, threshold for high probability to decide lca')
+    parser.add_argument('--thr_minprob_genus', type=str, default='1', help='with version_decision 3,threshold for minimum probability to decide genus')
+
     #parser.add_argument('--help', action='store_true', help='show this help message and exit')
     #parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     args = parser.parse_args()
@@ -74,6 +78,10 @@ def main():
     plot_tree=args.plot_tree
     model_file=args.model_file
     path_feature=args.path_feature
+    version_decision=args.version_decision
+    thr_minprob= float(args.thr_minprob)
+    thr_highprob_lca= float(args.thr_highprob_lca)
+    thr_minprob_genus= float(args.thr_minprob_genus)
     kmer_list=[] if args.kmer_list is None else [int(kmer) for kmer in args.kmer_list.split(',')]
     logging.info("Input kmer list: "+str(kmer_list))
 
@@ -84,8 +92,9 @@ def main():
     #tax_genome_file= in_folder + "seqid2taxid.map_tax_uniq"
 
     info, Tree, tax_index, tax_genome, parents, tree_df = _utils_tree.get_tax_info(tree_file,tax_genome_file)    
-    tax2path, tax2depth, tax2root_all_dic, tax_genome_specieslevel = _utils_tree.get_tax2path(tax_genome, info, parents,tree_df)
-    tax_level_training='species'  # training level 
+    tax_level='species'
+    tax2path, tax2depth, tax2root_all_dic, tax_genome_specieslevel = _utils_tree.get_tax2path(tax_genome, info, parents,tree_df,tax_level)
+    tax_level_training='genus'  # training level 
 
     if mode=="train": 
         #folder_input =workingdir+"../changek/simulatation/classification/max15/"
@@ -218,7 +227,8 @@ def main():
         logging.info("Number of reads in the read_k_prob: "+str(len(read_k_prob)))
 
         logging.info("Getting the best tax")
-        best_k_dic, estimated_tax_dict = _classifier.get_best_tax(read_k_prob,read_names_list,kraken_kmers_cases,thr_minprob=0.5) 
+        #thr_minprob=0.5
+        best_k_dic, estimated_tax_dict = _classifier.get_best_tax(read_k_prob,read_names_list,kraken_kmers_cases,thr_minprob,thr_highprob_lca,thr_minprob_genus,info,parents,version_decision) 
         logging.info("Writing the estimated tax")
         #output_file_name=workingdir+"results/estimated_tax.csv"
         output_file_name= _training.write_estimated_tax(estimated_tax_dict,output_file_name)
