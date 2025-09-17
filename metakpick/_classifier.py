@@ -26,10 +26,14 @@ def apply_RF_model(cases_classify_intersect,features_cases,read_names_list,loade
     return read_k_prob
 
 
-def calculate_accuracy(y_pred_prob,y_true):
+def calculate_accuracy(y_pred_prob, y_true):
     y_pred_binary=np.round(y_pred_prob)
-    accuracy=sum([1 for i in range(len(y_true)) if y_pred_binary[i] == y_true[i]]) / len(y_true)
-    logging.debug(" Accuracy of regression model is "+str(accuracy))
+    #print("y_pred_prob.shape", y_pred_prob.shape)
+    if len(y_pred_prob.shape)==1:
+        accuracy=sum([1 for i in range(len(y_true)) if y_pred_binary[i] == y_true[i]]) / len(y_true)
+    elif len(y_pred_prob.shape)==2 and y_pred_prob.shape[1]>1:
+        accuracy=np.mean(np.abs(y_pred_prob-y_true))/len(y_true)
+    logging.debug(" Accuracy of the model is "+str(accuracy))
     return accuracy
 
 
