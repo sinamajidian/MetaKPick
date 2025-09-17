@@ -2,7 +2,9 @@
 
 import numpy as np
 from collections import Counter
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor    
+from sklearn.ensemble import RandomForestClassifier # RandomForestRegressor
+
 import logging
 from sklearn.tree import _tree
 from sklearn import tree
@@ -28,7 +30,7 @@ def train_RF_model_all(features_cases, tp_binary_reads_cases,read_names_list,n_e
     regr_dic = {}
     for case, features_case in features_cases.items():
    
-        X_input = features_cases[case]
+        X_input = features_case #features_cases[case]
         Y_input = tp_binary_reads_cases[case]
 
         regr_dic[case] = train_RF_model(X_input, Y_input, n_estimators, max_features, max_leaf_nodes, random_state, n_jobs)
@@ -137,3 +139,54 @@ def plot_tree(regr_dic, feature_names, model_folder,num_trees=1):
 
 
 
+def topRF_model(read_k_prob,read_names_list,tp_binary_reads_cases, kraken_kmers_cases, cases):
+    #print(sum(sum(X3)))
+    X4=[]
+    for read in read_names_list:
+        features=read_k_prob[read]
+        X4.append(features)
+        #X_input = features_cases[case]
+    X4=np.array(X4)
+
+    #np.column_stack((a,b))
+    Y4=[tp_binary_reads_cases[case] for case in cases]
+    Y4=np.transpose(np.array(Y4))
+
+    n_estimators=100
+    max_leaf_nodes=10
+    random_state=14
+    n_jobs=1
+
+    regr = RandomForestClassifier(n_estimators=n_estimators,  
+                                    max_features=1, #1.0 all 
+                                    max_leaf_nodes=max_leaf_nodes,
+                                    random_state=random_state, verbose=True, n_jobs=n_jobs)  # “log2” sqrt # max_depth=10,  'log2' min_samples_leaf=10)  # 
+    regr.fit(X4, Y4)
+
+
+    y_pred2=regr.predict(X4)
+    y_pred2.shape[1]
+    accuracy= _classifier.calculate_accuracy(y_pred2,Y4)
+    logging.info("accuracy of top model: "+str(accuracy))
+
+
+    estimated_tax_dict={}
+    best_k_dic={}
+    ks=[int(case[1:]) for case in cases]
+    true_ks={}
+    for read_idx, read_name in enumerate(read_names_list):
+        estimated_tax=0
+        y_pred2_read=y_pred2[read_idx,:]
+        true_ks[read_name] =[cases[predict_idx] for predict_idx, precict in enumerate(y_pred2_read)  if precict==  1 ]
+        if true_ks[read_name]:
+            best_k=int(np.median([ int(k[1:]) for k in true_ks[read_name] ])) 
+            closest_k=min(ks, key=lambda x:abs(x-best_k)) # find the closest kmer size to median of true kmer sizes
+            best_k= 'k'+str(closest_k)
+        else:
+            best_k=-1
+        if best_k!=-1:
+            estimated_tax= kraken_kmers_cases[best_k][read_name][0]
+        estimated_tax_dict[read_name ]=estimated_tax
+        best_k_dic[read_name]=best_k
+    print(len(best_k_dic))
+    return best_k_dic, estimated_tax_dict, regr
