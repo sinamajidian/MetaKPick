@@ -1,11 +1,6 @@
 # MetaKPick
 
-
-# Work In Progress
-
-
-A tool for metagenomic classifciation
-
+MetaKPick is a machine learning-based tool for accurate metagenomic classification of sequencing reads. It combines multiple Kraken databases with different k-mer sizes to improve taxonomic assignment accuracy. The tool trains on simulated data with known ground truth to learn optimal classification strategies and can be used to classify unknown metagenomic samples.
 
 ## installtion
 
