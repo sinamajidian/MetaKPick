@@ -139,10 +139,14 @@ def plot_tree(regr_dic, feature_names, model_folder,num_trees=1):
 
 
 
-def topRF_model(read_k_prob,read_names_list,tp_binary_reads_cases, kraken_kmers_cases, cases):
-    #print(sum(sum(X3)))
-    feature_names_topRF=['k19','k21','k23','k25','k27','k29','k31','Max-secondMax',
-    'Max/Min','Max/Sum','Sum']
+# def apply topRF_model 
+
+# def get features 
+
+# get best k 
+
+
+def get_topRF_features(read_k_prob,read_names_list):
     X4=[]
     for read in read_names_list:
         features=list(read_k_prob[read])
@@ -157,11 +161,41 @@ def topRF_model(read_k_prob,read_names_list,tp_binary_reads_cases, kraken_kmers_
         #X_input = features_cases[case]
         #print(features)
     X4=np.array(X4)
+    return X4
 
-    
-     
-    #print("*&&&& shape of X4",X4.shape)
-    #np.column_stack((a,b))
+
+
+def get_best_tax_topRF(read_k_prob,read_names_list,y_pred2,cases,kraken_kmers_cases):
+
+    estimated_tax_dict={}
+    best_k_dic={}
+    ks=[int(case[1:]) for case in cases]
+    true_ks={}
+    for read_idx, read_name in enumerate(read_names_list):
+        estimated_tax=0
+        y_pred2_read=y_pred2[read_idx,:]
+        true_ks[read_name] =[cases[predict_idx] for predict_idx, precict in enumerate(y_pred2_read)  if precict==  1 ]
+        if true_ks[read_name]:
+            best_k=int(np.median([ int(k[1:]) for k in true_ks[read_name] ])) 
+            closest_k=min(ks, key=lambda x:abs(x-best_k)) # find the closest kmer size to median of true kmer sizes
+            best_k= 'k'+str(closest_k)
+        else:
+            best_k=-1
+        if best_k!=-1:
+            estimated_tax= kraken_kmers_cases[best_k][read_name][0]
+        estimated_tax_dict[read_name ]=estimated_tax
+        best_k_dic[read_name]=best_k
+
+    return estimated_tax_dict, best_k_dic
+
+
+def topRF_model(read_k_prob,read_names_list,tp_binary_reads_cases, kraken_kmers_cases, cases):
+    #print(sum(sum(X3)))
+    feature_names_topRF=['k19','k21','k23','k25','k27','k29','k31','Max-secondMax',
+    'Max/Min','Max/Sum','Sum']
+
+    X4=get_topRF_features(read_k_prob,read_names_list) # X4.shape
+
     Y4=[tp_binary_reads_cases[case] for case in cases]
     Y4=np.transpose(np.array(Y4))
 
@@ -182,24 +216,6 @@ def topRF_model(read_k_prob,read_names_list,tp_binary_reads_cases, kraken_kmers_
     accuracy= _classifier.calculate_accuracy(y_pred2,Y4)
     logging.info("accuracy of top model: "+str(accuracy))
 
-
-    estimated_tax_dict={}
-    best_k_dic={}
-    ks=[int(case[1:]) for case in cases]
-    true_ks={}
-    for read_idx, read_name in enumerate(read_names_list):
-        estimated_tax=0
-        y_pred2_read=y_pred2[read_idx,:]
-        true_ks[read_name] =[cases[predict_idx] for predict_idx, precict in enumerate(y_pred2_read)  if precict==  1 ]
-        if true_ks[read_name]:
-            best_k=int(np.median([ int(k[1:]) for k in true_ks[read_name] ])) 
-            closest_k=min(ks, key=lambda x:abs(x-best_k)) # find the closest kmer size to median of true kmer sizes
-            best_k= 'k'+str(closest_k)
-        else:
-            best_k=-1
-        if best_k!=-1:
-            estimated_tax= kraken_kmers_cases[best_k][read_name][0]
-        estimated_tax_dict[read_name ]=estimated_tax
-        best_k_dic[read_name]=best_k
-    print(len(best_k_dic))
+    estimated_tax_dict, best_k_dic = get_best_tax_topRF(read_k_prob,read_names_list,y_pred2,cases,kraken_kmers_cases)
+    logging.info("number of best k: "+str(len(best_k_dic)))
     return best_k_dic, estimated_tax_dict, regr
