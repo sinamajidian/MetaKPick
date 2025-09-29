@@ -141,19 +141,32 @@ def plot_tree(regr_dic, feature_names, model_folder,num_trees=1):
 
 def topRF_model(read_k_prob,read_names_list,tp_binary_reads_cases, kraken_kmers_cases, cases):
     #print(sum(sum(X3)))
+    feature_names_topRF=['k19','k21','k23','k25','k27','k29','k31','Max-secondMax',
+    'Max/Min','Max/Sum','Sum']
     X4=[]
     for read in read_names_list:
-        features=read_k_prob[read]
+        features=list(read_k_prob[read])
+        # features+= [max(features)-max([i for i in features if i!=max(features)])]
+        # if min(features)!=0:
+        #     features+= [max(features)/min(features)]
+        # else:
+        #     features+= [0]
+        # features+= [max(features)/sum(features)]
+        # features+= [sum(features)]
         X4.append(features)
         #X_input = features_cases[case]
+        #print(features)
     X4=np.array(X4)
 
+    
+     
+    #print("*&&&& shape of X4",X4.shape)
     #np.column_stack((a,b))
     Y4=[tp_binary_reads_cases[case] for case in cases]
     Y4=np.transpose(np.array(Y4))
 
-    n_estimators=100
-    max_leaf_nodes=10
+    n_estimators=20
+    max_leaf_nodes=20
     random_state=14
     n_jobs=1
 

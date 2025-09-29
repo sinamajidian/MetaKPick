@@ -41,7 +41,7 @@ def calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_l
         #merged  = _utils_kraken.read_kraken_classification(cases, truth_file, classification_folder )    
         
         
-        read_tpfp_dic_case= calculate_tp_fp("raw_kraken",kraken_kmers,dic_tax_truth,info,tree_df,parents,tax_level,tax_index)
+        read_tpfp_dic_case= calculate_tp_fp("raw_kraken",kraken_kmers,dic_tax_truth,info,tree_df,parents,tax_level,tax_index,read_names_list)
         logging.debug("Number of reads in the case TP : "+str(len(read_tpfp_dic_case['TP'])))
         if len(read_tpfp_dic_case['notruth']):
             logging.debug("Number of reads in the case not truth level : "+str(len(read_tpfp_dic_case['notruth']))+" a few examples: "+str(list(read_tpfp_dic_case['notruth'])[:10]))
@@ -52,7 +52,7 @@ def calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_l
     for read_name in read_names_list:
         reads_tp_cases[read_name]=set()
         for case_k, case in  enumerate(cases): 
-            k = int(case[1:3])
+            k = int(case[1:])
             if read_name in tp_cases_dic[case]:
                 reads_tp_cases[read_name].add(k)
     logging.debug("Number of reads in the case TP : "+str(len(reads_tp_cases)))
@@ -142,7 +142,7 @@ def calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_l
 
 
 
-def calculate_tp_fp(mode,input_dic,dic_tax_truth,info,tree_df,parents,tax_level,tax_index):
+def calculate_tp_fp(mode,input_dic,dic_tax_truth,info,tree_df,parents,tax_level,tax_index, read_name_list):
 
     """
     input_dic:
@@ -169,6 +169,8 @@ def calculate_tp_fp(mode,input_dic,dic_tax_truth,info,tree_df,parents,tax_level,
         tax_predicted_level_dic[tax_predicted] = int(_utils_tree.find_tax_level(info,tree_df,parents, tax_predicted, tax_level))
     tax_predicted_list_tocheck=[]
     for read_name, kraken_read_info in input_dic.items():
+        if read_name not in read_name_list:
+            continue
         if read_name not in dic_tax_truth:
             read_tpfp_dic['notruth'].append(read_name)
             continue
@@ -488,6 +490,10 @@ def read_kraken_all(cases, classification_folder): # , readids_max, num_reads=10
     logging.info("Reading kraken's k-mer count per tax from: "+classification_folder)
     #folder="/vast/blangme2/smajidi5/metagenomics/changek/simulatation/classification/" # 
     #cases=['k19','k25','k31'] # ,'k21'
+    if not cases:
+        logging.info("No cases (k-mer list is provided): "+str(cases))
+        return [], {}
+        
     kraken_kmers_cases={}
     for case in cases: 
         logging.info('Reading kraken file for case: '+case)

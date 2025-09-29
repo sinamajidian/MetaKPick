@@ -196,8 +196,9 @@ def calculate_num_kmers_path(Tree_updated, tax_kmer_num_dic,child2parent):
 
 
 
-def get_features_path(Tree_updated, reported_tax, tax_kmer_num_dic, rlen,num_nodes_tree,info, parents,child2parent):
-
+def get_features_path(path_feature, Tree_updated, reported_tax, tax_kmer_num_dic, rlen,num_nodes_tree,info, parents,child2parent):
+    if not path_feature:
+        return [0]*9
     num_kmers_path_updated= calculate_num_kmers_path(Tree_updated, tax_kmer_num_dic,child2parent)
     num_kmer_path_all=np.array(list(num_kmers_path_updated.values()),dtype=np.int32)
     num_kmer_norm=num_kmer_path_all/rlen # read_length_dic[read_id]
@@ -215,14 +216,43 @@ def get_features_path(Tree_updated, reported_tax, tax_kmer_num_dic, rlen,num_nod
     #feature_names+=['mean_nonzero/rlen','max/rlen','sum/rlen', 'mean_exc_tax/rlen'] # /readlength
     features_read_path+=[np.mean(num_kmer_norm), np.mean(num_kmer_norm)*len(num_kmer_norm)/num_nodes_tree, 
                 np.max(num_kmer_norm), np.sum(num_kmer_norm)]
+
     return features_read_path
 
 
 
 
+def parse_fastq_reads(fastq_file):
+    reads_quality = {}
+    handle=open(fastq_file, 'r')
+    line_count = 0
+    for line in handle:
+        line = line.strip()
+        line_count += 1
+        if line_count % 4 == 1:
+            read_id=line[1:].strip()
+            if not line.startswith('@'):
+                raise ValueError(f"Invalid FASTQ format: Expected header line starting with '@', got: {line}")
+            #current_read = {'header': line[1:], 'sequence': '', 'quality_header': '', 'quality': ''}                    
+        elif line_count % 4 == 0:
+            quality_scores = [ord(q) - 33 for q in line]  # Convert to Phred scores
+            reads_quality[read_id]= quality_scores
+       
+    return reads_quality
+
+def get_features_readq(reads_quality):
+    # reads_quality is a dictionary of read_name and the read_quality list (integer values )
+    reads_quality_features={}
+    if reads_quality:
+        for read_name, read_quality in reads_quality.items():
+            reads_quality_features[read_name]= [np.mean(read_quality), np.median(read_quality), np.percentile(read_quality, 10), np.percentile(read_quality, 90)]
+    
+    return reads_quality_features
 
 
-def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents, Tree, tax_index, path_feature=False):
+
+
+def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents, Tree, tax_index, reads_quality_features,path_feature):
     
     Tree_updated ={node:node_set.intersection(tax_index) for node,node_set in  Tree.items() if  node in tax_index}
     if 1 in Tree_updated and 1 in Tree_updated[1]:
@@ -243,7 +273,8 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_dep
                 'kmer_tax/rlen', 'kmer_tax_above/rlen', 'kmer_tax_below/rlen', 'kmer_othertax', 'kmer_othertax_above', 'kmer_othertax_below', 
                 'kmer_othertax/rlen', 'kmer_othertax_above/rlen', 'kmer_othertax_below/rlen', 'diff#kmers_halfRead','rlen',
                 'path_mean_nonzero','path_mean_all','path_max','path_sum', 'path_mean_exc_tax',
-                'path_mean_nonzero/rlen','path_mean_all/rlen','path_max/rlen','path_sum/rlen']
+                'path_mean_nonzero/rlen','path_mean_all/rlen','path_max/rlen','path_sum/rlen',
+                'mean_readq','median_readq','readq_10p','readq_90p']
     logging.debug("feature_names are : "+str(feature_names))
     
     num_nodes_tree = len(tax2path)    # 52229
@@ -278,13 +309,19 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_dep
             features_tax, below_tax_all_perread = get_features_tax(reported_tax, tax2root_dic, tax_kmer_num_dic, depth_reported, tax2depth, kmer_reported_tax, rlen)
 
             feature_half_read = get_features_half_read(reported_tax, tax_kmer_dic, rlen, below_tax_all_perread)
-            if path_feature:
-                features_path=get_features_path(Tree_updated, reported_tax, tax_kmer_num_dic, rlen,num_nodes_tree,info, parents,child2parent)
+       
+            features_path=get_features_path(path_feature, Tree_updated, reported_tax, tax_kmer_num_dic, rlen,num_nodes_tree,info, parents,child2parent)
+            if reads_quality_features and read_name in reads_quality_features:
+                features_readq = reads_quality_features[read_name]
             else:
-                features_path=[0]*9 #np.zeros(9)
+                features_readq = [0]*4
+            
 
-            features=features_read + features_depth+ features_tax+ feature_half_read + [rlen] + features_path
+
+            features=features_read + features_depth+ features_tax+ feature_half_read + [rlen] + features_path + features_readq
             #print(sum(features))
+
+
 
 
             X3.append(features)
@@ -296,3 +333,10 @@ def get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_dep
     logging.debug("number of reads not found in tax2depth "+str(len(not_found_in_tax2depth))+" a few examples: "+str(not_found_in_tax2depth[:10]))
     return features_cases, feature_names
 
+
+def read_read_names(read_name_file):
+    read_names_list = []
+    with open(read_name_file, 'r') as f:
+        for line in f:
+            read_names_list.append(line.strip())
+    return read_names_list

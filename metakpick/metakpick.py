@@ -53,10 +53,12 @@ def main():
     parser.add_argument('--path_feature', action='store_true', help='To use path feature, slower')
     parser.add_argument("--version", action="version", version=version_info)
     parser.add_argument('--version_decision', type=str, default='1', help='Version decision')
-    parser.add_argument('--thr_minprob', type=str, default='1', help='with version_decision 1/2/3, threshold for minimum probability to decide unclassified reads')
-    parser.add_argument('--thr_highprob_lca', type=str, default='1', help='with version_decision 2, threshold for high probability to decide lca')
-    parser.add_argument('--thr_minprob_genus', type=str, default='1', help='with version_decision 3,threshold for minimum probability to decide genus')
+    parser.add_argument('--thr_minprob', type=str, default='0.5', help='with version_decision 1/2/3, threshold for minimum probability to decide unclassified reads')
+    parser.add_argument('--thr_highprob_lca', type=str, default='0.5', help='with version_decision 2, threshold for high probability to decide lca')
+    parser.add_argument('--thr_minprob_genus', type=str, default='0.5', help='with version_decision 3,threshold for minimum probability to decide genus')
     parser.add_argument('--topRF', action='store_true', help='TopRF mode')
+    parser.add_argument('--fastq', type=str, help='Fastq file')
+    read_name_file=parser.add_argument('--read_name_file', type=str, help='Read name file')
     #parser.add_argument('--help', action='store_true', help='show this help message and exit')
     #parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     args = parser.parse_args()
@@ -83,6 +85,8 @@ def main():
     thr_minprob= float(args.thr_minprob)
     thr_highprob_lca= float(args.thr_highprob_lca)
     thr_minprob_genus= float(args.thr_minprob_genus)
+    fastq_file=args.fastq
+    read_name_file=args.read_name_file
     kmer_list=[] if args.kmer_list is None else [int(kmer) for kmer in args.kmer_list.split(',')]
     logging.info("Input kmer list: "+str(kmer_list))
 
@@ -136,7 +140,13 @@ def main():
         reads_tp_cases = _utils_kraken.calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_level_training,tax_index,read_names_list)
         logging.info("Getting the tp binary reads cases")
         tp_binary_reads_cases = _training.get_tp_binary_reads_cases(cases, read_names_list, reads_tp_cases)
-        features_cases, feature_names = _utils.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents, Tree, tax_index, path_feature)
+        reads_quality_features={}
+        if fastq_file:
+            logging.info("Reading the reads quality from: "+fastq_file)
+            reads_quality = _utils.parse_fastq_reads(fastq_file)
+            logging.info("Getting the reads quality features")
+            reads_quality_features = _utils.get_features_readq(reads_quality)
+        features_cases, feature_names = _utils.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents, Tree, tax_index, reads_quality_features, path_feature)
         logging.info("Cases in features: "+str(features_cases.keys()))
         
         logging.info("Training the RF model")
@@ -157,14 +167,15 @@ def main():
         if topRF:
             logging.info("working on mode TopRF")
 
-            logging.info("Getting the tax depth")
-            read_tax_depth = _utils_kraken.get_tax_depth(kraken_kmers_cases, info,parents)
-            logging.info("Getting the features")
-            features_cases, feature_names = _utils.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents, Tree, tax_index)
-            logging.info("Cases in features: "+str(features_cases.keys()))
+            #logging.info("Getting the tax depth")
+            #read_tax_depth = _utils_kraken.get_tax_depth(kraken_kmers_cases, info,parents)
+            #logging.info("Getting the features")
+            #features_cases, feature_names = _utils.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents, Tree, tax_index)
+            #logging.info("Cases in features: "+str(features_cases.keys()))
             logging.info("Applying the model")
             read_k_prob= _classifier.apply_RF_model(cases, features_cases,read_names_list,regr_dic)
             logging.info("Number of reads in the read_k_prob: "+str(len(read_k_prob)))
+            print("\n\n\n*&&__&&  read_k_prob",list(read_k_prob.keys())[0], read_k_prob[list(read_k_prob.keys())[0]])
             best_k_dic, estimated_tax_dict, regr_topRF = _training.topRF_model(read_k_prob,read_names_list,tp_binary_reads_cases, kraken_kmers_cases, cases)
             regr_dic['topRF']=regr_topRF
 
@@ -231,11 +242,26 @@ def main():
         read_names_list, kraken_kmers_cases = _utils_kraken.read_kraken_all(cases_classify_intersect, kraken_output_folder)
         logging.info("Number of reads in the kraken kmers: "+str(len(kraken_kmers_cases)))
 
-
         logging.info("Getting the tax depth")
         read_tax_depth = _utils_kraken.get_tax_depth(kraken_kmers_cases, info,parents)
         logging.info("Getting the features")
-        features_cases, feature_names = _utils.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents, Tree, tax_index)
+
+        reads_quality_features={}
+        if fastq_file:
+            logging.info("Reading the reads quality from: "+fastq_file)
+            reads_quality = _utils.parse_fastq_reads(fastq_file)
+            logging.info("Getting the reads quality features")
+            reads_quality_features = _utils.get_features_readq(reads_quality)
+
+
+        if read_name_file:
+            logging.info("Reading the read names from: "+read_name_file)
+            read_names_list_input = _utils.read_read_names(read_name_file)
+            logging.info("Number of reads in the read names file: "+str(len(read_names_list_input)))
+            read_names_list = [ i for i in read_names_list if i in   read_names_list_input ]
+            logging.info("Number of reads in the read names list: "+str(len(read_names_list)))
+
+        features_cases, feature_names = _utils.get_features_all(read_names_list, tax2path, kraken_kmers_cases, read_tax_depth, tax2depth, info, parents, Tree, tax_index, reads_quality_features, path_feature)
         logging.info("Cases in features: "+str(features_cases.keys()))
         logging.info("Applying the model")
         read_k_prob= _classifier.apply_RF_model(cases_classify_intersect, features_cases,read_names_list,loaded_regression_dic)
@@ -249,7 +275,14 @@ def main():
 
             X4=[]
             for read in read_names_list:
-                features=read_k_prob[read]
+                features= list(read_k_prob[read])
+                # features+= [max(features)-max([i for i in features if i!=max(features)])]
+                # if min(features)!=0:
+                #     features+= [max(features)/min(features)]
+                # else:
+                #     features+= [0]
+                # features+= [max(features)/sum(features)]
+                # features+= [sum(features)]
                 X4.append(features)
                 #X_input = features_cases[case]
             X4=np.array(X4)
@@ -340,9 +373,9 @@ def main():
                 for case in list(cases_classify_intersect)+["RF","Random","Oracle"]:
                     logging.info("Calculating the tp fp for case: "+case)
                     if case=='Oracle':
-                        read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case][level],dic_tax_truth,info,tree_df,parents,level,tax_index)
+                        read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case][level],dic_tax_truth,info,tree_df,parents,level,tax_index,read_names_list)
                     else:
-                        read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case],dic_tax_truth,info,tree_df,parents,level,tax_index)
+                        read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case],dic_tax_truth,info,tree_df,parents,level,tax_index,read_names_list)
                 
                     logging.info("Number of reads in the TP: "+str(len(read_tpfp_dic['TP'])))
 
