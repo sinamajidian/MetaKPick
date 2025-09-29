@@ -23,42 +23,38 @@ import _utils_kraken
 # import seaborn as sns
 # from collections import Counter
 
-
-
-
 def main():
     start_time = time.time()    
     version_info = str(__init__.__packagename__) + str(__init__.__version__)
-
     logging.basicConfig(level=logging.DEBUG,format='%(asctime)s - %(levelname)s - %(message)s')
 
     parser = argparse.ArgumentParser(description='Metakpick: for metagenomic classification of reads')
-    # # Main operation mode arguments
-    #mode_group = parser.add_mutually_exclusive_group(required=True)
-    #mode_group.add_argument('--train', action='store_true', help='Run the training of the model')
-    #mode_group.add_argument('--classify', action='store_true', help='Run the classification of the model')
     parser.add_argument('--mode', type=str, default='classify', help='train or classify')
+    
+    # Input arguments
     # parser.add_argument('--workingdir', type=str, help='Working directory')
-    # parser.add_argument('--model', type=str, help='Model file')
-    # parser.add_argument('--threads', type=int, help='Number of threads')
     parser.add_argument('--kraken_out', type=str, help='Kraken output folder')
     parser.add_argument('--truth_file', type=str, help='Truth file')
-    #parser.add_argument('--model_folder', type=str, help='Model folder')
     parser.add_argument('--model_file', type=str, help='Model file')
-    parser.add_argument('--output_file_name', type=str, help='Output file name')
     parser.add_argument('--tree_file', type=str, help='Tree file')
     parser.add_argument('--tax_genome_file', type=str, help='Tax genome file')
-    parser.add_argument('--kmer_list', type=str, help='K-mer list file comma separated') # 19,21,23 
+    parser.add_argument('--fastq', type=str, help='Use fastq file, read quality, to generate features')  
+    parser.add_argument('--read_name_file', type=str, help='a file with each line a read name, to limit kraken output to the read names in the file')
+
+    parser.add_argument('--output_file_name', type=str, help='Output file name')
+
     parser.add_argument('--plot_tree', action='store_true', help='Plot the tree')
-    parser.add_argument('--path_feature', action='store_true', help='To use path feature, slower')
     parser.add_argument("--version", action="version", version=version_info)
+
+    # Algorithm arguments
+    parser.add_argument('--kmer_list', type=str, help='K-mer list file comma separated to use during training/testing') # 19,21,23 
+    parser.add_argument('--path_feature', action='store_true', help=' generate and use path feature, slower')
     parser.add_argument('--version_decision', type=str, default='1', help='Version decision')
     parser.add_argument('--thr_minprob', type=str, default='0.5', help='with version_decision 1/2/3, threshold for minimum probability to decide unclassified reads')
     parser.add_argument('--thr_highprob_lca', type=str, default='0.5', help='with version_decision 2, threshold for high probability to decide lca')
     parser.add_argument('--thr_minprob_genus', type=str, default='0.5', help='with version_decision 3,threshold for minimum probability to decide genus')
-    parser.add_argument('--topRF', action='store_true', help='TopRF mode')
-    parser.add_argument('--fastq', type=str, help='Fastq file')
-    read_name_file=parser.add_argument('--read_name_file', type=str, help='Read name file')
+    parser.add_argument('--topRF', action='store_true', help='Use a RF on top of all the RFs')
+    parser.add_argument('--training_level', type=str, default='species', help='taxanomic level/rank for training')
     #parser.add_argument('--help', action='store_true', help='show this help message and exit')
     #parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     args = parser.parse_args()
@@ -70,10 +66,8 @@ def main():
     logging.info(f"MetaKPick version: {version_info}")
     logging.info("Args: "+str(args))
     mode=args.mode # train or classify
-    #workingdir=args.workingdir
     kraken_output_folder=args.kraken_out
     truth_file=args.truth_file
-    #model_folder=args.model_folder
     output_file_name=args.output_file_name
     tree_file=args.tree_file
     tax_genome_file=args.tax_genome_file
@@ -82,6 +76,7 @@ def main():
     path_feature=args.path_feature
     version_decision=args.version_decision
     topRF=args.topRF
+    tax_level_training=args.training_level
     thr_minprob= float(args.thr_minprob)
     thr_highprob_lca= float(args.thr_highprob_lca)
     thr_minprob_genus= float(args.thr_minprob_genus)
@@ -91,15 +86,10 @@ def main():
     logging.info("Input kmer list: "+str(kmer_list))
 
     logging.info("Starting the program and loading the tax info")
-    #workingdir="/vast/blangme2/smajidi5/metagenomics/metakpick_project/"
-    #in_folder= workingdir+"files/"
-    #tree_file=in_folder+"nodes.dmp"
-    #tax_genome_file= in_folder + "seqid2taxid.map_tax_uniq"
-
     info, Tree, tax_index, tax_genome, parents, tree_df = _utils_tree.get_tax_info(tree_file,tax_genome_file)    
     tax_level='species'
     tax2path, tax2depth, tax2root_all_dic, tax_genome_specieslevel = _utils_tree.get_tax2path(tax_genome, info, parents,tree_df,tax_level)
-    tax_level_training='genus'  # training level 
+
 
     if mode=="train": 
         #folder_input =workingdir+"../changek/simulatation/classification/max15/"
