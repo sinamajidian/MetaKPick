@@ -36,12 +36,13 @@ def get_tax_depth(kraken_kmers_cases, info, parents):
 
 def calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_level,tax_index,read_names_list):
     tp_cases_dic={}
+    read_name_set=set(read_names_list)
     for case, kraken_kmers in kraken_kmers_cases.items():
         logging.debug('finding true k for case '+case)
         #merged  = _utils_kraken.read_kraken_classification(cases, truth_file, classification_folder )    
         
         
-        read_tpfp_dic_case= calculate_tp_fp("raw_kraken",kraken_kmers,dic_tax_truth,info,tree_df,parents,tax_level,tax_index,read_names_list)
+        read_tpfp_dic_case= calculate_tp_fp("raw_kraken",kraken_kmers,dic_tax_truth,info,tree_df,parents,tax_level,tax_index,read_name_set)
         logging.debug("Number of reads in the case TP : "+str(len(read_tpfp_dic_case['TP'])))
         if len(read_tpfp_dic_case['notruth']):
             logging.debug("Number of reads in the case not truth level : "+str(len(read_tpfp_dic_case['notruth']))+" a few examples: "+str(list(read_tpfp_dic_case['notruth'])[:10]))
@@ -142,7 +143,7 @@ def calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_l
 
 
 
-def calculate_tp_fp(mode,input_dic,dic_tax_truth,info,tree_df,parents,tax_level,tax_index, read_name_list):
+def calculate_tp_fp(mode,input_dic,dic_tax_truth,info,tree_df,parents,tax_level,tax_index, read_name_set):
 
     """
     input_dic:
@@ -169,7 +170,7 @@ def calculate_tp_fp(mode,input_dic,dic_tax_truth,info,tree_df,parents,tax_level,
         tax_predicted_level_dic[tax_predicted] = int(_utils_tree.find_tax_level(info,tree_df,parents, tax_predicted, tax_level))
     tax_predicted_list_tocheck=[]
     for read_name, kraken_read_info in input_dic.items():
-        if read_name not in read_name_list:
+        if read_name not in read_name_set:
             continue
         if read_name not in dic_tax_truth:
             read_tpfp_dic['notruth'].append(read_name)

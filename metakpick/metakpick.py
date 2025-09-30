@@ -7,6 +7,7 @@ import logging
 import pandas as pd
 import numpy as np
 import random
+random.seed(42)
 import pickle
 from datetime import datetime
 import time 
@@ -210,11 +211,8 @@ def main():
             logging.info("Reading the truth file: "+truth_file)
             dic_tax_truth = _utils_kraken.read_truth_file(truth_file)
             logging.info("Number of reads in the truth file: "+str(len(dic_tax_truth)))
-            reads_tp_cases_all={}
-            for tax_level in ['species','genus','family','order','class']:
-                reads_tp_cases_all[tax_level] = _utils_kraken.calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_level,tax_index,read_names_list_)
-        logging.info("Calculating and printing the statistics")
-        _classifier.print_statiscs(estimated_tax_dict,cases_classify_intersect,kraken_kmers_cases,read_names_list_,dic_tax_truth,info,tree_df,parents,tax_index,read_names_list_)
+            logging.info("Calculating and printing the statistics")
+            _classifier.print_statiscs(estimated_tax_dict,cases_classify_intersect,kraken_kmers_cases,read_names_list_,dic_tax_truth,info,tree_df,parents,tax_index)
 
     
     # Calculate and print total runtime

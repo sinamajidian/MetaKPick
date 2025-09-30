@@ -1,8 +1,12 @@
 import logging
 import numpy as np
 from collections import Counter
-
+import random
+random.seed(42)
+import numpy as np
+np.random.seed(42)
 import _utils_tree
+import _utils_kraken
 
 def apply_RF_model(cases_classify_intersect,features_cases,read_names_list,loaded_regression_dic):
     #cases=list(loaded_regression_dic.keys())
@@ -134,7 +138,12 @@ def get_best_tax(read_k_prob,read_names_list,kraken_kmers_cases,thr_minprob,thr_
 
 
 
-def print_statiscs(estimated_tax_dict,cases_classify_intersect,kraken_kmers_cases,read_names_list_,dic_tax_truth,info,tree_df,parents,tax_index,read_names_list):
+def print_statiscs(estimated_tax_dict,cases_classify_intersect,kraken_kmers_cases,read_names_list,dic_tax_truth,info,tree_df,parents,tax_index):
+    read_name_set=set(read_names_list)
+    reads_tp_cases_all={}
+    for tax_level in ['species','genus','family','order','class']:
+        reads_tp_cases_all[tax_level] = _utils_kraken.calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_level,tax_index,read_names_list)
+
 
     logging.info("cleaning reported tax for all kmer sizes")
     kraken_reportedtax_cases=dict()
@@ -146,7 +155,7 @@ def print_statiscs(estimated_tax_dict,cases_classify_intersect,kraken_kmers_case
             kraken_reportedtax_cases[case][read_name]=reported_tax
 
     kraken_reportedtax_cases["Random"]={} 
-    for read_name in read_names_list_:
+    for read_name in read_names_list:
         case_random = cases_classify_intersect[random.randint(0, len(cases_classify_intersect)-1)]
         kraken_reportedtax_cases["Random"][read_name]  = kraken_reportedtax_cases[case_random][read_name]      	     
 
@@ -167,13 +176,13 @@ def print_statiscs(estimated_tax_dict,cases_classify_intersect,kraken_kmers_case
     for level in ['species','genus','family','order','class']:
         print("level: "+level)
         for case in list(cases_classify_intersect)+["RF","Random","Oracle"]:
-            logging.info("Calculating the tp fp for case: "+case)
+            logging.info("Calculating the tp fp for case: "+case+" level: "+level)
             if case=='Oracle':
-                read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case][level],dic_tax_truth,info,tree_df,parents,level,tax_index,read_names_list_)
+                read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case][level],dic_tax_truth,info,tree_df,parents,level,tax_index,read_name_set)
             else:
-                read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case],dic_tax_truth,info,tree_df,parents,level,tax_index,read_names_list_)
+                read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case],dic_tax_truth,info,tree_df,parents,level,tax_index,read_name_set)
         
-            logging.info("Number of reads in the TP: "+str(len(read_tpfp_dic['TP'])))
+            logging.info("Number of reads in the TP: "+str(len(read_tpfp_dic['TP'])) + " case: "+case+ " level: "+level)
 
             FP=len(read_tpfp_dic['FP-level-index'])+len(read_tpfp_dic['FP-higher-index'])+len(read_tpfp_dic['FP-level-notindex'])+len(read_tpfp_dic['FP-higher-notindex'])
             recall=len(read_tpfp_dic['TP'])/(len(read_tpfp_dic['TP']) + len(read_tpfp_dic['VP']) + len(read_tpfp_dic['FN']) +FP )
@@ -184,5 +193,6 @@ def print_statiscs(estimated_tax_dict,cases_classify_intersect,kraken_kmers_case
                 precision=0
                 F1=0
             
-            logging.info('=='+level+'_'+case,',',round(F1,4),",", round(precision,4),",",round(recall,4),",",len(read_tpfp_dic['TP']),",",FP,",",len(read_tpfp_dic['VP']))
-            return F1 
+            print('=='+level+'_'+case+','+str(round(F1,4))+","+str(round(precision,4))+","+str(round(recall,4))+","+str(len(read_tpfp_dic['TP']))+","+str(FP)+","+str(len(read_tpfp_dic['VP'])))
+
+    return F1 
