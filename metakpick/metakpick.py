@@ -55,6 +55,7 @@ def main():
     parser.add_argument('--thr_highprob_lca', type=str, default='0.5', help='with version_decision 2, threshold for high probability to decide lca')
     parser.add_argument('--thr_minprob_genus', type=str, default='0.5', help='with version_decision 3,threshold for minimum probability to decide genus')
     parser.add_argument('--topRF', action='store_true', help='Use a RF on top of all the RFs')
+    parser.add_argument('--use_minprob_topRF', action='store_true', help='Use the minimum probability to decide the best tax in topRF')
     parser.add_argument('--training_level', type=str, default='species', help='taxanomic level/rank for training')
     #parser.add_argument('--help', action='store_true', help='show this help message and exit')
     #parser.parse_args(args=None if sys.argv[1:] else ['--help'])
@@ -77,6 +78,7 @@ def main():
     path_feature=args.path_feature
     version_decision=args.version_decision
     topRF=args.topRF
+    use_minprob_topRF=args.use_minprob_topRF
     tax_level_training=args.training_level
     thr_minprob= float(args.thr_minprob)
     thr_highprob_lca= float(args.thr_highprob_lca)
@@ -105,6 +107,9 @@ def main():
 
         logging.info("Reading the kraken kmers from: "+kraken_output_folder)
         read_names_list, kraken_kmers_cases = _utils_kraken.read_kraken_all(cases, kraken_output_folder)
+        if not read_names_list:
+            logging.error("No reads found in the kraken output folder: "+kraken_output_folder)
+            sys.exit(1) 
         logging.info("Getting the tax depth and true k-mer size at the training level: "+tax_level_training)
         read_tax_depth = _utils_kraken.get_tax_depth(kraken_kmers_cases, info, parents)
         reads_tp_cases = _utils_kraken.calculate_true_k(kraken_kmers_cases,dic_tax_truth,info,tree_df,parents,tax_level_training,tax_index,read_names_list)
@@ -132,7 +137,7 @@ def main():
             read_k_prob= _classifier.apply_RF_model(cases, features_cases,read_names_list,regr_dic)
             logging.info("Number of reads in the read_k_prob: "+str(len(read_k_prob)))
             #print("\n\n\n*&&__&&  read_k_prob",list(read_k_prob.keys())[0], read_k_prob[list(read_k_prob.keys())[0]])
-            best_k_dic, estimated_tax_dict, regr_topRF = _training.topRF_model(read_k_prob,read_names_list,tp_binary_reads_cases, kraken_kmers_cases, cases)
+            best_k_dic, estimated_tax_dict, regr_topRF = _training.train_topRF_model(read_k_prob,read_names_list,tp_binary_reads_cases, kraken_kmers_cases, cases,use_minprob_topRF,thr_minprob)
             regr_dic['topRF']=regr_topRF
 
         logging.info("Saving all models in: "+model_file) 
@@ -196,7 +201,7 @@ def main():
             y_pred2=loaded_regression_dic['topRF'].predict(X4)
            
             logging.info("Getting the best tax for TopRF")
-            estimated_tax_dict, best_k_dic = _training.get_best_tax_topRF(read_k_prob,read_names_list_,y_pred2,cases,kraken_kmers_cases)
+            estimated_tax_dict, best_k_dic = _training.get_best_tax_topRF(read_k_prob,read_names_list_,y_pred2,cases,kraken_kmers_cases,use_minprob_topRF,thr_minprob)
             
         else:
             logging.info("Getting the best tax")

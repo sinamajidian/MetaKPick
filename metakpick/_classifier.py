@@ -67,11 +67,11 @@ def get_best_tax_old(read_k_prob,read_names_list,kraken_kmers_cases,thr_minprob=
 
 def get_genus_tax(estimated_tax_raw,info,parents):
     list_tax2root = _utils_tree.find_tax2root(info,parents,estimated_tax_raw)
-    idx= list_tax2root.index(estimated_tax_raw)
-    if idx-1 > 0:
-        estimated_tax=list_tax2root[idx-1]
-    else:
-        estimated_tax=estimated_tax_raw
+    estimated_tax=estimated_tax_raw
+    if len(list_tax2root)!=-1 and isinstance(list_tax2root, list):
+        idx= list_tax2root.index(estimated_tax_raw)
+        if idx-1 > 0: # todo: we could deeper into the tree if needed, -1 could result in sth between species and genus
+            estimated_tax=list_tax2root[idx-1]
 
     return estimated_tax
 
@@ -150,7 +150,8 @@ def print_statiscs(estimated_tax_dict,cases_classify_intersect,kraken_kmers_case
     kraken_reportedtax_cases['RF']=estimated_tax_dict
     for case in cases_classify_intersect:
         kraken_reportedtax_cases[case]={}
-        for read_name, kraken_info in kraken_kmers_cases[case].items():
+        for read_name in read_names_list:
+            kraken_info=kraken_kmers_cases[case][read_name]
             reported_tax = kraken_info[0]
             kraken_reportedtax_cases[case][read_name]=reported_tax
 
@@ -175,7 +176,7 @@ def print_statiscs(estimated_tax_dict,cases_classify_intersect,kraken_kmers_case
     print("case\tF1\tprecision\trecall\tTP\tFP\tVP")
     for level in ['species','genus','family','order','class']:
         print("level: "+level)
-        for case in list(cases_classify_intersect)+["RF","Random","Oracle"]:
+        for case in list(cases_classify_intersect)+["Random","Oracle","RF"  ]:
             logging.info("Calculating the tp fp for case: "+case+" level: "+level)
             if case=='Oracle':
                 read_tpfp_dic = _utils_kraken.calculate_tp_fp('predicted_tax',kraken_reportedtax_cases[case][level],dic_tax_truth,info,tree_df,parents,level,tax_index,read_name_set)

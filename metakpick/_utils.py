@@ -95,18 +95,23 @@ def get_features_tax(reported_tax, tax2root_dic, tax_kmer_num_dic, depth_reporte
 
 def get_features_half_read(reported_tax, tax_kmer_dic, rlen, below_tax_all_perread):
     tax_krak_touse=reported_tax
-    if reported_tax not in tax_kmer_dic: # when lca is reprorted, use onf its lower ones. 
+    if (reported_tax not in tax_kmer_dic) and len(below_tax_all_perread)>0: # when lca is reprorted, use onf its lower ones. 
         tax_krak_touse= below_tax_all_perread[0]
     segment_num=2 # 3
     segment_len=int(rlen/segment_num)
-    pos_num_reportedtax = tax_kmer_dic[tax_krak_touse] # [(77, 1), (136, 4), (139, 2), (144, 4), (148, 2), (162, 2), (233, 1)]
     cnt_perbin=np.zeros((segment_num,1))
-    for pos,numkmer in pos_num_reportedtax:
-        bin_idx= int(pos/segment_len)
-        cnt_perbin[bin_idx]+=numkmer
-    diff_fromnext_seg = [ np.abs(cnt_perbin[segment_i+1]-cnt_perbin[segment_i])[0] for segment_i in range(segment_num-1)]
+    if tax_krak_touse in tax_kmer_dic:
+        pos_num_reportedtax = tax_kmer_dic[tax_krak_touse] # [(77, 1), (136, 4), (139, 2), (144, 4), (148, 2), (162, 2), (233, 1)]
     
-    feature_half_read = [np.mean(diff_fromnext_seg)]
+        
+        for pos,numkmer in pos_num_reportedtax:
+            bin_idx= int(pos/segment_len)
+            cnt_perbin[bin_idx]+=numkmer
+        diff_fromnext_seg = [ np.abs(cnt_perbin[segment_i+1]-cnt_perbin[segment_i])[0] for segment_i in range(segment_num-1)]
+    
+        feature_half_read = [np.mean(diff_fromnext_seg)]
+    else:
+        feature_half_read = [0]
     return feature_half_read
 
 

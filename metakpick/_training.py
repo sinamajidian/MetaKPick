@@ -165,8 +165,8 @@ def get_topRF_features(read_k_prob,read_names_list):
 
 
 
-def get_best_tax_topRF(read_k_prob,read_names_list,y_pred2,cases,kraken_kmers_cases):
-
+def get_best_tax_topRF(read_k_prob,read_names_list,y_pred2,cases,kraken_kmers_cases,use_minprob_topRF,thr_minprob):
+    cnt_cases_unclassified_minpro=0
     estimated_tax_dict={}
     best_k_dic={}
     ks=[int(case[1:]) for case in cases]
@@ -179,20 +179,28 @@ def get_best_tax_topRF(read_k_prob,read_names_list,y_pred2,cases,kraken_kmers_ca
             best_k=int(np.median([ int(k[1:]) for k in true_ks[read_name] ])) 
             closest_k=min(ks, key=lambda x:abs(x-best_k)) # find the closest kmer size to median of true kmer sizes
             best_k= 'k'+str(closest_k)
+            
+            if use_minprob_topRF: # version 1 is the old version
+                max_val = np.max(read_k_prob[read_name])
+                #print("** Version decision is 1")
+                if max_val  < thr_minprob:
+                    best_k=-1
+                    cnt_cases_unclassified_minpro+=1
+
         else:
             best_k=-1
         if best_k!=-1:
             estimated_tax= kraken_kmers_cases[best_k][read_name][0]
         estimated_tax_dict[read_name ]=estimated_tax
         best_k_dic[read_name]=best_k
-
+    logging.info("=* number of cases unclassified by minprob topRF: "+str(cnt_cases_unclassified_minpro))
     return estimated_tax_dict, best_k_dic
 
 
-def topRF_model(read_k_prob,read_names_list,tp_binary_reads_cases, kraken_kmers_cases, cases):
+def train_topRF_model(read_k_prob,read_names_list,tp_binary_reads_cases, kraken_kmers_cases, cases,use_minprob_topRF,thr_minprob):
     #print(sum(sum(X3)))
     feature_names_topRF=['k19','k21','k23','k25','k27','k29','k31','Max-secondMax',
-    'Max/Min','Max/Sum','Sum']
+    'Max/Min','Max/Sum','Sum'] # todo check for different kmer sizes
 
     X4=get_topRF_features(read_k_prob,read_names_list) # X4.shape
 
@@ -216,6 +224,6 @@ def topRF_model(read_k_prob,read_names_list,tp_binary_reads_cases, kraken_kmers_
     accuracy= _classifier.calculate_accuracy(y_pred2,Y4)
     logging.info("accuracy of top model: "+str(accuracy))
 
-    estimated_tax_dict, best_k_dic = get_best_tax_topRF(read_k_prob,read_names_list,y_pred2,cases,kraken_kmers_cases)
+    estimated_tax_dict, best_k_dic = get_best_tax_topRF(read_k_prob,read_names_list,y_pred2,cases,kraken_kmers_cases,use_minprob_topRF,thr_minprob)
     logging.info("number of best k: "+str(len(best_k_dic)))
     return best_k_dic, estimated_tax_dict, regr
